@@ -1,0 +1,30 @@
+{
+  "name": "site-scraper",
+  "version": "0.1.0",
+  "description": "CLI that pulls images, fonts, palette, and copy from a public site as pitch-mockup reference material",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "site-scraper": "./src/cli.js",
+    "site-scraper-batch": "./src/cliBatch.js",
+    "site-scraper-restructure": "./src/cliRestructure.js"
+  },
+  "scripts": {
+    "scrape": "node src/cli.js",
+    "scrape:batch": "node src/cliBatch.js",
+    "restructure:export": "node src/cliRestructure.js export",
+    "restructure:apply": "node src/cliRestructure.js apply",
+    "test": "node --test test/**/*.test.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "image-size": "^1.1.1",
+    "jimp": "^0.22.12"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.47.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

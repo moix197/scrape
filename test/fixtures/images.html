@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head><title>Images Fixture</title></head>
+<body>
+  <img src="/images/hero.jpg" alt="Hero banner" width="800" height="400">
+
+  <img src="/images/fallback.jpg"
+       srcset="/images/small.jpg 400w, /images/large.jpg 800w"
+       alt="Responsive image">
+
+  <picture>
+    <source srcset="/images/pic-small.webp 1x, /images/pic-large.webp 2x">
+    <img src="/images/pic-fallback.jpg" alt="Picture fallback">
+  </picture>
+
+  <img data-src="/images/lazy.jpg" alt="Lazy image">
+  <img data-lazy-src="/images/lazy2.jpg" alt="Lazy image 2">
+
+  <img src="data:image/png;base64,AAAA" alt="Inline data image">
+
+  <wow-image data-image-info='{"imageData":{"uri":"89d44b_wix~mv2_d_5760_3840.jpg","width":5760,"height":3840}}'>
+    <img alt="Wix background" width="490" height="252">
+  </wow-image>
+</body>
+</html>

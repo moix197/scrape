@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+  <title>  Copy Fixture  </title>
+  <meta name="description" content="  A page about testing copy extraction.  ">
+  <style>
+    .hidden { display: none; }
+  </style>
+  <script>
+    console.log("this should not appear in visible text");
+  </script>
+</head>
+<body>
+  <script>var x = "noise";</script>
+  <h1>Welcome</h1>
+  <p>
+    This   is
+    some    visible
+
+
+    copy.
+  </p>
+  <noscript>Enable JavaScript to continue.</noscript>
+  <template><span>hidden template content</span></template>
+</body>
+</html>

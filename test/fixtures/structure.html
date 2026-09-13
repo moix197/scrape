@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <title>Structure Fixture</title>
+</head>
+<body>
+  <header>
+    <a href="/">
+      <img alt="Acme Logo" src="/logo.png">
+    </a>
+    <nav>
+      <ul class="nav-menu">
+        <li><a href="/about">About</a></li>
+        <li class="dropdown">
+          <a href="/services" class="dropdown-toggle">Services</a>
+          <ul class="dropdown-menu">
+            <li><a href="/services/consulting">Consulting</a></li>
+            <li><a href="/services/design">Design</a></li>
+          </ul>
+        </li>
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle">Resources</a>
+          <ul class="dropdown-menu">
+            <li><a href="/resources/guides">Guides</a></li>
+          </ul>
+        </li>
+        <li class="dropdown">
+          <button class="dropdown-toggle" type="button">More</button>
+          <ul class="dropdown-menu">
+            <li><a href="/more/faq">FAQ</a></li>
+          </ul>
+        </li>
+        <li><a href="/contact">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Welcome to Acme</h1>
+    <img src="/hero.jpg" alt="Hero image">
+    <iframe data-src="https://player.vimeo.com/video/999"></iframe>
+    <iframe src="about:blank" data-src="https://player.vimeo.com/video/54321" class="lazyload"></iframe>
+  </section>
+
+  <section class="gallery">
+    <h2>Our Work</h2>
+    <img src="/gallery-1.jpg" alt="Work 1">
+    <img src="/gallery-2.jpg" alt="Work 2">
+    <img src="/gallery-3.jpg" alt="Work 3">
+  </section>
+
+  <section class="about">
+    <h2>About Us</h2>
+    <p>We build things.</p>
+  </section>
+
+  <section class="contact">
+    <h2>Contact Us</h2>
+    <a href="https://facebook.com/acme">Facebook</a>
+    <a href="https://instagram.com/acme">Instagram</a>
+    <a href="mailto:hello@acme.com">Email us</a>
+    <iframe src="https://www.google.com/maps/embed?pb=xyz"></iframe>
+    <form action="/submit">
+      <h3>Send us a message</h3>
+      <label>Your name</label>
+      <input type="text" placeholder="Jane Doe">
+      <a href="https://example.com/privacy">Privacy policy</a>
+      <img src="/form-icon.png" alt="Form icon">
+      <button type="submit">Submit</button>
+    </form>
+  </section>
+
+  <section class="testimonials">
+    <h2>What people say</h2>
+    <iframe src="https://www.youtube.com/embed/xyz"></iframe>
+  </section>
+
+  <div class="venues-widget">
+    <h2>Venues</h2>
+    <div role="list">
+      <div role="listitem">
+        <h4>Sparrow Beginnings</h4>
+        <wow-image data-image-info='{"imageData":{"uri":"89d44b_abc~mv2_d_5760_3840.jpg","width":5760,"height":3840}}'>
+          <img alt="" width="490" height="252">
+        </wow-image>
+        <a href="/sparrow-beginnings" aria-label="Visit Gallery">Visit Gallery</a>
+      </div>
+      <div role="listitem">
+        <h4>The Legacy</h4>
+        <img src="/legacy.jpg" alt="Legacy venue">
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <section class="block-a">
+      <h2>Special Offer</h2>
+      <p>Save today.</p>
+    </section>
+    <section class="block-b">
+      <p>See our latest work below.</p>
+      <div class="team">
+        <h2>Meet the Team</h2>
+        <img src="/team-1.jpg" alt="Team member">
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a href="https://twitter.com/acme">Twitter</a>
+    <a href="https://x.com/acme">X</a>
+    <a href="https://youtube.com/acme">YouTube</a>
+    <p>&copy; 2026 Acme Inc.</p>
+  </footer>
+
+  <img src="/stray.jpg" alt="Stray image">
+
+  <form action="/newsletter">
+    <label>Email</label>
+    <input type="email" placeholder="you@example.com">
+    <button type="submit">Subscribe</button>
+  </form>
+</body>
+</html>

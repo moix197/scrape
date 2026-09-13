@@ -1,0 +1,21 @@
+.hero {
+  background-image: url("/images/hero-bg.jpg");
+}
+.banner {
+  background: #fff url('/images/banner-bg.png') no-repeat;
+}
+.data-uri {
+  background-image: url(data:image/png;base64,AAAA);
+}
+.ignored {
+  color: url(/not-a-background.png);
+}
+@font-face {
+  font-family: "Brand Sans";
+  src: url("/fonts/brand-sans.woff2") format("woff2"),
+       url("/fonts/brand-sans.woff") format("woff");
+}
+@font-face {
+  font-family: 'Brand Serif';
+  src: url("/fonts/brand-serif.ttf");
+}

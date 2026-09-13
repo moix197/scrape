@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <title>Videos Fixture</title>
+</head>
+<body>
+  <video src="/media/hero.mp4" poster="/media/hero-poster.jpg"></video>
+
+  <video poster="/media/reel-poster.jpg">
+    <source src="/media/reel.webm" type="video/webm">
+    <source src="/media/reel.mp4" type="video/mp4">
+  </video>
+
+  <video data-src="/media/lazy.mp4"></video>
+  <video data-lazy-src="/media/lazy-alt.mp4"></video>
+
+  <video>
+    <source src="data:video/mp4;base64,AAAA" type="video/mp4">
+  </video>
+
+  <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>
+  <iframe src="https://player.vimeo.com/video/12345"></iframe>
+  <iframe src="https://fast.wistia.net/embed/iframe/abc123"></iframe>
+  <iframe src="https://www.google.com/maps/embed?pb=abc"></iframe>
+  <iframe data-src="https://player.vimeo.com/video/999"></iframe>
+  <iframe src="about:blank" data-src="https://player.vimeo.com/video/54321" class="lazyload"></iframe>
+
+  <a href="/downloads/promo.mp4">Download promo (mp4)</a>
+  <a href="/downloads/promo.mov?utm_source=site">Download promo (mov)</a>
+  <a href="/about">About us</a>
+</body>
+</html>
