@@ -256,8 +256,8 @@ function pickSiteNav(pages) {
 }
 
 function footerContentKey(section) {
-  const { images, videos, headings, links, text } = section;
-  return JSON.stringify({ images, videos, headings, links, text });
+  const { images, videos, headings, links, text, contacts, listItems, form } = section;
+  return JSON.stringify({ images, videos, headings, links, text, contacts, listItems, form });
 }
 
 // Same idea as pickSiteNav, but for the footer-type section (not every page has one at all).

@@ -62,3 +62,18 @@ test('buildStructureOutput hoists a site-wide, deduped contacts list (first craw
   assert.deepEqual(result.footer.listItems, [{ ordered: false, items: ['Item A'] }]);
   assert.deepEqual(result.footer.form, { fields: [{ label: 'Name', type: 'text', required: true }] });
 });
+
+test('buildStructureOutput warns about inconsistent footers when they differ only in contacts', (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  const page1 = fakePage('https://example.com/', [
+    fakeSection({ type: 'footer', order: 0, text: 'Footer', contacts: [{ type: 'tel', value: '+15550100', label: 'Call' }] }),
+  ]);
+  const page2 = fakePage('https://example.com/about', [
+    fakeSection({ type: 'footer', order: 0, text: 'Footer', contacts: [] }),
+  ]);
+
+  buildStructureOutput([page1, page2]);
+
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(warn.mock.calls[0].arguments[0], /inconsistent footer/);
+});
