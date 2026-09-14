@@ -146,6 +146,31 @@ test('renderNavPages with an unavailable session degrades: no PNGs, error set, n
   assert.equal(rateLimiter.calls.throttle, 2);
 });
 
+test('renderNavPages: a screenshot write failure degrades that target with "render failed" and never throws', async () => {
+  const session = makeAvailableSession();
+  const rateLimiter = makeFakeRateLimiter();
+  const logger = makeFakeLogger();
+  const outputBase = await makeTempOutputBase();
+  // A null byte is an invalid path segment on every platform (Windows, macOS, Linux), so
+  // fs.writeFile reliably throws here regardless of what OS the tests run on.
+  const targets = [{ url: 'https://a.test/bad', slug: 'bad\0slug' }];
+
+  try {
+    const entries = await renderNavPages({ session, targets, outputBase, onFetchLogged: logger.onFetchLogged, rateLimiter });
+
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].desktop, null);
+    assert.equal(entries[0].mobile, null);
+    assert.equal(entries[0].error, 'render failed');
+
+    assert.equal(logger.entries.length, 2);
+    for (const entry of logger.entries) assert.equal(entry.status, 0);
+    assert.equal(rateLimiter.calls.throttle, 2);
+  } finally {
+    await fs.rm(outputBase, { recursive: true, force: true });
+  }
+});
+
 test('renderNavPages: a withPage call resolving null degrades that target with "render failed", other targets unaffected', async () => {
   const session = {
     available: true,
