@@ -278,6 +278,14 @@ function stripChromeSections(sections) {
   return sections.filter((s) => s.type !== 'nav' && s.type !== 'footer');
 }
 
+// Site-wide lang/favicon come from the home page (falls back to the first crawled page when
+// no page's URL resolves to 'home'), same "pick one representative page" approach as
+// pickSiteNav/pickSiteFooter above.
+function pickSiteMeta(pages) {
+  const homePage = pages.find((p) => derivePageName(p.url) === 'home') ?? pages[0];
+  return homePage.site;
+}
+
 function buildStructureOutput(pages) {
   const withLogo = pages.find((p) => p.structure.logo);
   const socialLinks = dedupeLinksByUrl(pages.flatMap((p) => p.structure.socialLinks));
@@ -286,11 +294,13 @@ function buildStructureOutput(pages) {
     socialLinks,
     nav: pickSiteNav(pages),
     footer: pickSiteFooter(pages),
+    site: pickSiteMeta(pages),
     pages: pages.map((p) => ({
       url: p.url,
       name: derivePageName(p.url),
       sections: stripChromeSections(p.structure.sections),
       logo: p.structure.logo,
+      meta: p.meta,
     })),
   };
 }

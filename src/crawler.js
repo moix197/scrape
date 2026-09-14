@@ -7,7 +7,7 @@ import { extractImages } from './extract/images.js';
 import { extractFontLinks } from './extract/fonts.js';
 import { extractVideos } from './extract/videos.js';
 import { extractPageStructure } from './extract/structure.js';
-import { extractPageMeta, extractVisibleText } from './extract/copy.js';
+import { extractPageMeta, extractSiteMeta, extractVisibleText } from './extract/copy.js';
 import {
   extractLinkedStylesheetUrls,
   extractBackgroundImagesFromCss,
@@ -123,7 +123,7 @@ async function processPage(url, deps) {
   const html = await fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, browserSession });
   if (html === null) return null;
 
-  const meta = extractPageMeta(html);
+  const meta = extractPageMeta(html, url);
   const pageImages = extractImages(html, url).map((img) => ({ ...img, sourcePageUrl: url }));
   const fontLinks = extractFontLinks(html, url);
   const structure = extractPageStructure(html, url);
@@ -135,7 +135,7 @@ async function processPage(url, deps) {
   const inlineColorRules = extractColorRules(extractInlineStyleBlocks(html));
 
   return {
-    page: { url, title: meta.title, description: meta.description, structure },
+    page: { url, title: meta.title, description: meta.description, structure, meta, site: extractSiteMeta(html, url) },
     images: [...pageImages, ...cssImages],
     fonts: [...fontLinks, ...cssExtras.fonts],
     videos,
