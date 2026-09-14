@@ -29,7 +29,11 @@ async function openPage(browser, { width, height }) {
 
 async function runOnPage(page, url, timeoutMs, fn) {
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: timeoutMs });
+    // 'networkidle' never resolves on pages with persistent background traffic (analytics,
+    // polling — confirmed against a real Wix site, where it reliably hit the full timeout) —
+    // domcontentloaded plus the explicit scroll/settle wait below is both safer and, for
+    // lazy-hydrated widgets, more effective than networkidle ever was.
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
     await autoScrollPage(page);
     return await fn(page);
   } catch {
@@ -65,7 +69,12 @@ export async function createBrowserSession({ timeoutMs = 20000, loadPlaywright: 
 
   async function close() {
     if (!browserPromise) return;
-    const browser = await browserPromise;
+    let browser;
+    try {
+      browser = await browserPromise;
+    } catch {
+      return;
+    }
     await browser.close();
   }
 

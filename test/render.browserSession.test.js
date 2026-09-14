@@ -79,6 +79,26 @@ test('renderWithPlaywright resolves an object { html }, never a bare string', as
   assert.deepEqual(rendered, { html: '<html>ok</html>' });
 });
 
+test('a rejected chromium.launch degrades withPage to null and close() still resolves without throwing', async () => {
+  const loader = {
+    load: async () => ({
+      chromium: {
+        launch: async () => {
+          throw new Error('browsers not downloaded');
+        },
+      },
+    }),
+  };
+
+  const session = await createBrowserSession({ loadPlaywright: loader.load });
+  assert.equal(session.available, true);
+
+  const result = await session.withPage('https://x', { width: 1280, height: 800 }, (page) => page.content());
+  assert.equal(result, null);
+
+  await assert.doesNotReject(session.close());
+});
+
 test('a fn that throws inside withPage makes withPage resolve null, and the page is still closed', async () => {
   const fakePage = makeFakePage();
   const fakeBrowser = { newPage: async () => fakePage, close: async () => {} };
