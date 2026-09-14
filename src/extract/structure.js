@@ -308,7 +308,9 @@ function extractSectionListItems($, sectionEl, excludeInside) {
     .each((_, el) => {
       if (isExcluded($, el, excludeInside)) return;
       if (hasListAncestorWithinSection($, el, sectionEl)) return;
-      listItems.push({ ordered: el.tagName.toLowerCase() === 'ol', items: collectListItemTexts($, el, excludeInside) });
+      const items = collectListItemTexts($, el, excludeInside);
+      if (items.length === 0) return;
+      listItems.push({ ordered: el.tagName.toLowerCase() === 'ol', items });
     });
   return listItems;
 }

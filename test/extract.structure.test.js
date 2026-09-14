@@ -374,3 +374,9 @@ test('extractPageStructure does not leak an excluded <form>\'s text into an encl
   const faq = findSection(structure, 'faq');
   assert.deepEqual(faq.listItems, [{ ordered: false, items: ['Shipping'] }]);
 });
+
+test('extractPageStructure omits a list whose items have no text (e.g. icon-only) from listItems', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const footer = findSection(structure, 'footer');
+  assert.deepEqual(footer.listItems, []);
+});
