@@ -1,3 +1,5 @@
+import { dropPnpmSeparator } from './utils/argv.js';
+
 const USAGE = `Usage: site-scraper <url> [options]
 
 Options:
@@ -79,6 +81,7 @@ function parseNumberFlag(flag, rawValue) {
 function parseArgs(args) {
   const options = { ...DEFAULTS };
   let rootUrl = null;
+  args = dropPnpmSeparator(args);
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];

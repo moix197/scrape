@@ -9,6 +9,7 @@ import {
   restructureSiteDir,
 } from './restructure.js';
 import { writeJson } from './images/manifest.js';
+import { dropPnpmSeparator } from './utils/argv.js';
 
 const USAGE = `Usage:
   site-scraper-restructure export [<domain-or-url>] [--out <dir>] [--fresh]
@@ -32,6 +33,7 @@ function parseArgs(argv) {
   const options = { out: './output', fresh: false };
   let subcommand = null;
   let target = null;
+  argv = dropPnpmSeparator(argv);
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];

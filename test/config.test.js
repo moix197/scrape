@@ -37,3 +37,13 @@ test('parseCliArgs parses --force-playwright', () => {
   assert.equal(options.rootUrl, 'https://example.com');
   assert.equal(options.forcePlaywright, true);
 });
+
+test('parseCliArgs drops a leading pnpm `--` separator instead of throwing', () => {
+  const options = parseCliArgs(['--', 'https://example.com']);
+  assert.equal(options.rootUrl, 'https://example.com');
+});
+
+test('parseBatchCliArgs drops a leading pnpm `--` separator instead of throwing', () => {
+  const options = parseBatchCliArgs(['--', '--concurrency', '5']);
+  assert.equal(options.concurrency, 5);
+});
