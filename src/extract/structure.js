@@ -269,39 +269,22 @@ function extractSectionText($, scopeEl, excludeInside) {
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-// Scoped counterpart to extractSectionText: same "each element's own text nodes" walk, but
-// excludes any text that belongs to a nested ul/ol inside itemEl, so a list item's text never
-// duplicates its own nested list's items.
-function collectItemOwnText($, itemEl) {
-  const nestedLists = $(itemEl).find('ul, ol').toArray();
-  const parts = [];
-  $(itemEl)
-    .find('*')
-    .addBack()
-    .each((_, el) => {
-      if (NON_TEXT_TAGS.has(el.tagName?.toLowerCase())) return;
-      if (isExcluded($, el, nestedLists)) return;
-      $(el)
-        .contents()
-        .each((__, node) => {
-          if (node.type === 'text' && node.data.trim()) parts.push(node.data.trim());
-        });
-    });
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
-}
-
 // Flattens one top-level list's items: a nested ul/ol inside an <li> is not its own entry —
-// its items are appended, in document order, right after that <li>'s own text.
-function collectListItemTexts($, listEl) {
+// its items are appended, in document order, right after that <li>'s own text. Item text is
+// gathered with extractSectionText, scoped per-<li> and excluding that <li>'s own nested lists
+// (so a list item's text never duplicates its own nested list's items) plus whatever the caller
+// already excludes, so a claimed/excluded landmark nested inside an <li> doesn't leak its text.
+function collectListItemTexts($, listEl, excludeInside) {
   const items = [];
   $(listEl)
     .children('li')
     .each((_, li) => {
-      const ownText = collectItemOwnText($, li);
+      const nestedLists = $(li).find('ul, ol').toArray();
+      const ownText = extractSectionText($, li, [...excludeInside, ...nestedLists]);
       if (ownText) items.push(ownText);
       $(li)
         .children('ul, ol')
-        .each((__, nestedList) => items.push(...collectListItemTexts($, nestedList)));
+        .each((__, nestedList) => items.push(...collectListItemTexts($, nestedList, excludeInside)));
     });
   return items;
 }
@@ -325,7 +308,7 @@ function extractSectionListItems($, sectionEl, excludeInside) {
     .each((_, el) => {
       if (isExcluded($, el, excludeInside)) return;
       if (hasListAncestorWithinSection($, el, sectionEl)) return;
-      listItems.push({ ordered: el.tagName.toLowerCase() === 'ol', items: collectListItemTexts($, el) });
+      listItems.push({ ordered: el.tagName.toLowerCase() === 'ol', items: collectListItemTexts($, el, excludeInside) });
     });
   return listItems;
 }

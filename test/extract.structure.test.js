@@ -28,6 +28,7 @@ test('extractPageStructure detects sections in document order with correct types
     'about',
     'contact',
     'testimonials',
+    'faq',
     'cards',
     'section',
     'team',
@@ -181,21 +182,10 @@ test('extractPageStructure treats iframe src="about:blank" as a placeholder and 
 
 test('extractPageStructure gives each section its own scoped body text', () => {
   const structure = extractPageStructure(html, pageUrl);
-  assert.equal(
-    findSection(structure, 'about').text,
-    'About Us We build things. Fast turnaround Fair pricing No hidden fees Friendly team',
-  );
-  assert.equal(findSection(structure, 'footer').text, 'Twitter X YouTube © 2026 Acme Inc. 555-010-2020');
-});
-
-test('extractPageStructure keeps extractSectionText behaviour untouched by the new listItems field', () => {
-  const structure = extractPageStructure(html, pageUrl);
   const about = findSection(structure, 'about');
-  assert.equal(
-    about.text,
-    'About Us We build things. Fast turnaround Fair pricing No hidden fees Friendly team',
-  );
+  assert.equal(about.text, 'About Us We build things. Fast turnaround Fair pricing No hidden fees Friendly team');
   assert.ok(about.text.includes('Fast turnaround'));
+  assert.equal(findSection(structure, 'footer').text, 'Twitter X YouTube © 2026 Acme Inc. 555-010-2020');
 });
 
 test('extractPageStructure includes link text in a section\'s body text', () => {
@@ -354,4 +344,10 @@ test('extractPageStructure includes the nav section\'s top-level labels in listI
   ['About', 'Services', 'Resources', 'More', 'Contact'].forEach((label) => {
     assert.ok(nav.listItems[0].items.includes(label), `expected listItems to include ${label}`);
   });
+});
+
+test('extractPageStructure does not leak an excluded <form>\'s text into an enclosing listItems entry', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const faq = findSection(structure, 'faq');
+  assert.deepEqual(faq.listItems, [{ ordered: false, items: ['Shipping'] }]);
 });
