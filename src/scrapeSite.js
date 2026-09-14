@@ -270,8 +270,30 @@ function pickSiteFooter(pages) {
   if (!keys.every((k) => k === keys[0])) {
     console.warn('Pages have inconsistent footer content; using the first detected footer as the site-wide footer.');
   }
-  const { images, videos, headings, links, text } = footers[0];
-  return { images, videos, headings, links, text };
+  const { images, videos, headings, links, text, contacts, listItems, form } = footers[0];
+  return { images, videos, headings, links, text, contacts, listItems, form };
+}
+
+// Site-wide contacts hoisted from every section (nav/footer included) across every crawled
+// page — same first-wins dedupe pattern as dedupeLinksByUrl/collectSocialLinks, keyed by
+// (type, value) since the same contact can legitimately appear in multiple sections.
+function collectSiteContacts(pages) {
+  const seen = new Map();
+  for (const page of pages) {
+    for (const section of page.structure.sections) {
+      for (const contact of section.contacts) {
+        const key = `${contact.type}:${contact.value}`;
+        if (seen.has(key)) continue;
+        seen.set(key, {
+          type: contact.type,
+          value: contact.value,
+          label: contact.label,
+          where: { page: page.url, sectionOrder: section.order },
+        });
+      }
+    }
+  }
+  return [...seen.values()];
 }
 
 function stripChromeSections(sections) {
@@ -286,12 +308,13 @@ function pickSiteMeta(pages) {
   return homePage.site;
 }
 
-function buildStructureOutput(pages) {
+export function buildStructureOutput(pages) {
   const withLogo = pages.find((p) => p.structure.logo);
   const socialLinks = dedupeLinksByUrl(pages.flatMap((p) => p.structure.socialLinks));
   return {
     logo: withLogo ? withLogo.structure.logo : null,
     socialLinks,
+    contacts: collectSiteContacts(pages),
     nav: pickSiteNav(pages),
     footer: pickSiteFooter(pages),
     site: pickSiteMeta(pages),

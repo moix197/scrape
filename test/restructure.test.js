@@ -8,6 +8,7 @@ import {
   parseModelResponse,
   validatePlan,
   applyRestructurePlan,
+  mergeSections,
   restructurePage,
   restructureSite,
   buildRestructuredCopyMarkdown,
@@ -36,6 +37,9 @@ function fakeSection(overrides) {
     headings: [],
     links: [],
     text: '',
+    contacts: [],
+    listItems: [],
+    form: null,
     ...overrides,
   };
 }
@@ -205,6 +209,49 @@ test('applyRestructurePlan merges cards from multiple merged source sections and
     { sections: [{ sourceIds: [0], type: 'about', label: 'About' }] },
   );
   assert.ok(!('cards' in noCards[0]));
+});
+
+test('mergeSections dedupes contacts by (type,value), concatenates listItems in source order, and takes the first non-null form', () => {
+  const sections = [
+    fakeSection({
+      contacts: [{ type: 'tel', value: '+1', label: 'Call' }],
+      listItems: [{ ordered: false, items: ['a', 'b'] }],
+      form: null,
+    }),
+    fakeSection({
+      contacts: [
+        { type: 'tel', value: '+1', label: 'Call' },
+        { type: 'mailto', value: 'hi@example.com', label: 'Email' },
+      ],
+      listItems: [{ ordered: true, items: ['c'] }],
+      form: { fields: [{ label: 'Name', type: 'text', required: true }] },
+    }),
+  ];
+
+  const merged = mergeSections(sections, [0, 1], { type: 'contact', label: 'Contact' }, 0);
+
+  assert.deepEqual(merged.contacts, [
+    { type: 'tel', value: '+1', label: 'Call' },
+    { type: 'mailto', value: 'hi@example.com', label: 'Email' },
+  ]);
+  assert.deepEqual(merged.listItems, [
+    { ordered: false, items: ['a', 'b'] },
+    { ordered: true, items: ['c'] },
+  ]);
+  assert.deepEqual(merged.form, { fields: [{ label: 'Name', type: 'text', required: true }] });
+});
+
+test('mergeSections merges empty contacts/listItems and null forms to empty/null, not undefined', () => {
+  const sections = [
+    fakeSection({ contacts: [], listItems: [], form: null }),
+    fakeSection({ contacts: [], listItems: [], form: null }),
+  ];
+
+  const merged = mergeSections(sections, [0, 1], { type: 'about', label: 'About' }, 0);
+
+  assert.deepEqual(merged.contacts, []);
+  assert.deepEqual(merged.listItems, []);
+  assert.equal(merged.form, null);
 });
 
 test('restructurePage skips pages with zero sections without calling the model', async () => {

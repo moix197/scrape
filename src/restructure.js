@@ -106,6 +106,16 @@ function validatePlan(plan, originalCount) {
   }
 }
 
+// First-wins dedupe by (type, value) — same pattern as scrapeSite.js's collectSiteContacts.
+function dedupeContacts(contacts) {
+  const seen = new Map();
+  for (const contact of contacts) {
+    const key = `${contact.type}:${contact.value}`;
+    if (!seen.has(key)) seen.set(key, contact);
+  }
+  return [...seen.values()];
+}
+
 function mergeSections(sections, sourceIds, { type, label, description }, order) {
   const sourceSections = [...sourceIds].sort((a, b) => a - b).map((id) => sections[id]);
   // Only a "cards" source section (see extract/structure.js) carries this — omitted rather
@@ -124,6 +134,9 @@ function mergeSections(sections, sourceIds, { type, label, description }, order)
     links: sourceSections.flatMap((s) => s.links),
     text: sourceSections.map((s) => s.text).filter(Boolean).join(' '),
     ...(cards.length ? { cards } : {}),
+    contacts: dedupeContacts(sourceSections.flatMap((s) => s.contacts)),
+    listItems: sourceSections.flatMap((s) => s.listItems),
+    form: sourceSections.map((s) => s.form).find((f) => f != null) ?? null,
   };
 }
 
