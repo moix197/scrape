@@ -269,6 +269,67 @@ function extractSectionText($, scopeEl, excludeInside) {
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
+// Scoped counterpart to extractSectionText: same "each element's own text nodes" walk, but
+// excludes any text that belongs to a nested ul/ol inside itemEl, so a list item's text never
+// duplicates its own nested list's items.
+function collectItemOwnText($, itemEl) {
+  const nestedLists = $(itemEl).find('ul, ol').toArray();
+  const parts = [];
+  $(itemEl)
+    .find('*')
+    .addBack()
+    .each((_, el) => {
+      if (NON_TEXT_TAGS.has(el.tagName?.toLowerCase())) return;
+      if (isExcluded($, el, nestedLists)) return;
+      $(el)
+        .contents()
+        .each((__, node) => {
+          if (node.type === 'text' && node.data.trim()) parts.push(node.data.trim());
+        });
+    });
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+// Flattens one top-level list's items: a nested ul/ol inside an <li> is not its own entry —
+// its items are appended, in document order, right after that <li>'s own text.
+function collectListItemTexts($, listEl) {
+  const items = [];
+  $(listEl)
+    .children('li')
+    .each((_, li) => {
+      const ownText = collectItemOwnText($, li);
+      if (ownText) items.push(ownText);
+      $(li)
+        .children('ul, ol')
+        .each((__, nestedList) => items.push(...collectListItemTexts($, nestedList)));
+    });
+  return items;
+}
+
+// Scoped counterpart to isExcluded, for detecting a nested (non-top-level) list: true when el
+// has a ul/ol ancestor that itself lives inside sectionEl. parents('ul, ol') can surface
+// ancestors entirely outside sectionEl (e.g. the section sitting inside some larger page list)
+// — those must not count toward "nested within this section".
+function hasListAncestorWithinSection($, el, sectionEl) {
+  return $(el)
+    .parents('ul, ol')
+    .toArray()
+    .some((ancestor) => ancestor === sectionEl || $.contains(sectionEl, ancestor));
+}
+
+function extractSectionListItems($, sectionEl, excludeInside) {
+  const listItems = [];
+  $(sectionEl)
+    .find('ul, ol')
+    .addBack('ul, ol')
+    .each((_, el) => {
+      if (isExcluded($, el, excludeInside)) return;
+      if (hasListAncestorWithinSection($, el, sectionEl)) return;
+      listItems.push({ ordered: el.tagName.toLowerCase() === 'ol', items: collectListItemTexts($, el) });
+    });
+  return listItems;
+}
+
 function classifySocialLink(url) {
   let hostname;
   try {
@@ -463,6 +524,7 @@ function extractSectionContent($, scopeEl, pageUrl, { excludeInside = [] } = {})
     links: extractSectionLinks($, scopeEl, pageUrl, excludeAll),
     contacts: extractSectionContacts($, scopeEl, excludeAll),
     text: extractSectionText($, scopeEl, excludeAll),
+    listItems: extractSectionListItems($, scopeEl, excludeAll),
   };
 }
 

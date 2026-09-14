@@ -181,8 +181,21 @@ test('extractPageStructure treats iframe src="about:blank" as a placeholder and 
 
 test('extractPageStructure gives each section its own scoped body text', () => {
   const structure = extractPageStructure(html, pageUrl);
-  assert.equal(findSection(structure, 'about').text, 'About Us We build things.');
+  assert.equal(
+    findSection(structure, 'about').text,
+    'About Us We build things. Fast turnaround Fair pricing No hidden fees Friendly team',
+  );
   assert.equal(findSection(structure, 'footer').text, 'Twitter X YouTube © 2026 Acme Inc. 555-010-2020');
+});
+
+test('extractPageStructure keeps extractSectionText behaviour untouched by the new listItems field', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const about = findSection(structure, 'about');
+  assert.equal(
+    about.text,
+    'About Us We build things. Fast turnaround Fair pricing No hidden fees Friendly team',
+  );
+  assert.ok(about.text.includes('Fast turnaround'));
 });
 
 test('extractPageStructure includes link text in a section\'s body text', () => {
@@ -307,4 +320,38 @@ test('extractPageStructure dissolves a wrapper section that itself contains an a
 
   // ...and it isn't duplicated onto the team section itself.
   assert.ok(!team.text.includes('See our latest work below.'));
+});
+
+test('extractPageStructure flattens a nested list into its parent list\'s items, in document order', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const about = findSection(structure, 'about');
+  assert.deepEqual(about.listItems, [
+    { ordered: false, items: ['Fast turnaround', 'Fair pricing', 'No hidden fees', 'Friendly team'] },
+  ]);
+});
+
+test('extractPageStructure captures an ordered list as its own listItems entry', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const testimonials = findSection(structure, 'testimonials');
+  assert.deepEqual(testimonials.listItems, [{ ordered: true, items: ['Step one', 'Step two'] }]);
+});
+
+test('extractPageStructure gives a section with no lists an empty listItems array', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  assert.deepEqual(findSection(structure, 'hero').listItems, []);
+});
+
+test('extractPageStructure excludes a list inside a <form> from listItems entirely', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const contact = findSection(structure, 'contact');
+  assert.ok(!JSON.stringify(contact.listItems).includes('form-only item'));
+});
+
+test('extractPageStructure includes the nav section\'s top-level labels in listItems', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const nav = findSection(structure, 'nav');
+  assert.equal(nav.listItems.length, 1);
+  ['About', 'Services', 'Resources', 'More', 'Contact'].forEach((label) => {
+    assert.ok(nav.listItems[0].items.includes(label), `expected listItems to include ${label}`);
+  });
 });
