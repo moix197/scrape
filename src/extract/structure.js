@@ -500,27 +500,31 @@ function collectFormEls($, scopeEl) {
 
 const SKIPPED_INPUT_TYPES = new Set(['hidden', 'submit', 'button', 'reset', 'image']);
 
+function resolveFieldType($, fieldEl) {
+  return ($(fieldEl).attr('type') || 'text').toLowerCase();
+}
+
 function isCapturableField($, fieldEl) {
   const tag = fieldEl.tagName.toLowerCase();
   if (tag === 'textarea' || tag === 'select') return true;
   if (tag !== 'input') return false;
-  const type = ($(fieldEl).attr('type') || 'text').toLowerCase();
-  return !SKIPPED_INPUT_TYPES.has(type);
+  return !SKIPPED_INPUT_TYPES.has(resolveFieldType($, fieldEl));
 }
 
+// `.filter()` over an exact `for` match (rather than interpolating id into a selector) avoids
+// selector-injection when id contains CSS-special characters.
 function findLabelForId($, id) {
-  return $('label')
+  return $('label[for]')
     .toArray()
     .find((label) => $(label).attr('for') === id);
 }
 
-// A wrapping <label>'s own text includes whatever the control itself renders (normally
-// nothing — input/textarea/select don't have text-node children) — cloning and stripping the
-// same-tag descendant keeps that from ever leaking into the label text.
+// Strips the wrapped control itself so its own rendered text (e.g. a <select>'s <option>
+// text) never leaks into the label text.
 function wrappingLabelText($, fieldEl) {
   const label = $(fieldEl).closest('label');
   if (!label.length) return '';
-  return label.clone().find(fieldEl.tagName.toLowerCase()).remove().end().text();
+  return label.clone().find('input, textarea, select').remove().end().text();
 }
 
 function resolveFieldLabel($, fieldEl) {
@@ -547,7 +551,7 @@ function extractFormFields($, formEl) {
     .filter((fieldEl) => isCapturableField($, fieldEl))
     .map((fieldEl) => {
       const tag = fieldEl.tagName.toLowerCase();
-      const type = tag === 'input' ? ($(fieldEl).attr('type') || 'text').toLowerCase() : tag;
+      const type = tag === 'input' ? resolveFieldType($, fieldEl) : tag;
       return { label: resolveFieldLabel($, fieldEl), type, required: isRequiredField($, fieldEl) };
     });
 }
