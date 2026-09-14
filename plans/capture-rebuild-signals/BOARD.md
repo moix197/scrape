@@ -4,13 +4,13 @@
 **Branch:** capture-rebuild-signals
 
 ## Stats
-- Ready: 1 · In Progress: 1 · Blocked: 2 · Done: 7 · Failed: 0
+- Ready: 1 · In Progress: 0 · Blocked: 2 · Done: 8 · Failed: 0
 
 ## Ready
 - [C00](cards/C00.md) — Create worktree
 
 ## In Progress
-- [C08](cards/C08.md) — Computed-style samples per rendered page + site-level fonts/colors aggregate (deps: C07) — session: execagent-C08
+_(none)_
 
 ## Blocked
 - [C04](cards/C04.md) — Hoist site-wide contacts and carry new section fields through footer + restructure (deps: C01, C02, C03)
@@ -24,6 +24,7 @@
 - [C07](cards/C07.md) — Full-page desktop + mobile screenshots of home and every nav page
 - [C03](cards/C03.md) — Capture contact-form fields per section
 - [C05](cards/C05.md) — Capture page meta (canonical, og, JSON-LD) and site lang/favicon into structure.json
+- [C08](cards/C08.md) — Computed-style samples per rendered page + site-level fonts/colors aggregate
 
 ## Failed
 _(none)_

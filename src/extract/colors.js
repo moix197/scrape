@@ -42,7 +42,7 @@ function normalizeRgbLiteral(value) {
 
 // Only hex and rgb()/rgba() are handled here — named colors, hsl(), currentColor,
 // and gradients are intentionally out of scope for this pragmatic regex-based scan.
-function normalizeColorValue(value) {
+export function normalizeColorValue(value) {
   return normalizeHexLiteral(value) ?? normalizeRgbLiteral(value);
 }
 
@@ -77,7 +77,7 @@ export function extractColorRules(cssText) {
   return entries;
 }
 
-function weightForSelector(selector) {
+export function weightForSelector(selector) {
   const match = SELECTOR_WEIGHTS.find(([regex]) => regex.test(selector));
   return match ? match[1] : 1;
 }

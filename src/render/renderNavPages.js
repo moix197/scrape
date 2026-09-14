@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { writeJson } from '../images/manifest.js';
 import { isSameOrigin } from '../utils/urls.js';
+import { sampleComputedStyles, aggregateSiteStyle } from './computedStyle.js';
 
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
@@ -57,21 +58,30 @@ async function tryWriteScreenshot(outputBase, filename, buffer) {
   }
 }
 
+// session.available is checked explicitly rather than delegated to withPage, since an
+// unavailable session need not expose a callable withPage at all. Style sampling (when
+// requested) happens inside this same page visit — no extra navigation.
+async function capturePage(session, target, viewport, sampleStyles) {
+  if (!session.available) return { buffer: null, samples: null };
+  const result = await session.withPage(target.url, viewport, async (page) => {
+    const buffer = await page.screenshot({ fullPage: true, type: 'png' });
+    const samples = sampleStyles ? await sampleComputedStyles(page) : null;
+    return { buffer, samples };
+  });
+  return result ?? { buffer: null, samples: null };
+}
+
 // Every capture (success or failure) is a logged network hit, same as a plain fetch — so
 // throttle/onFetchLogged run unconditionally here, before checking whether a buffer came back.
-// session.available is checked explicitly rather than delegated to withPage, since an
-// unavailable session need not expose a callable withPage at all.
-async function captureViewport(session, target, name, viewport, { outputBase, rateLimiter, onFetchLogged }) {
+async function captureViewport(session, target, name, viewport, { outputBase, rateLimiter, onFetchLogged, sampleStyles = false }) {
   await rateLimiter.throttle();
-  const buffer = session.available
-    ? await session.withPage(target.url, viewport, (page) => page.screenshot({ fullPage: true, type: 'png' }))
-    : null;
+  const { buffer, samples } = await capturePage(session, target, viewport, sampleStyles);
 
   const filename = `${target.slug}-${name}.png`;
   const relativePath = buffer !== null ? await tryWriteScreenshot(outputBase, filename, buffer) : null;
 
   onFetchLogged?.({ url: target.url, status: relativePath !== null ? 200 : 0, timestamp: new Date().toISOString(), method: 'screenshot' });
-  return relativePath;
+  return { relativePath, samples };
 }
 
 function buildIndexEntry(target, { desktopPath, mobilePath, sessionAvailable }) {
@@ -89,13 +99,16 @@ function buildIndexEntry(target, { desktopPath, mobilePath, sessionAvailable }) 
 
 export async function renderNavPages({ session, targets, outputBase, onFetchLogged, rateLimiter }) {
   const entries = [];
+  const stylePages = [];
   for (const target of targets) {
     const captureOptions = { outputBase, rateLimiter, onFetchLogged };
-    const desktopPath = await captureViewport(session, target, 'desktop', DESKTOP_VIEWPORT, captureOptions);
-    const mobilePath = await captureViewport(session, target, 'mobile', MOBILE_VIEWPORT, captureOptions);
-    entries.push(buildIndexEntry(target, { desktopPath, mobilePath, sessionAvailable: session.available }));
+    const desktop = await captureViewport(session, target, 'desktop', DESKTOP_VIEWPORT, { ...captureOptions, sampleStyles: true });
+    const mobile = await captureViewport(session, target, 'mobile', MOBILE_VIEWPORT, captureOptions);
+    entries.push(buildIndexEntry(target, { desktopPath: desktop.relativePath, mobilePath: mobile.relativePath, sessionAvailable: session.available }));
+    if (desktop.samples !== null) stylePages.push({ url: target.url, slug: target.slug, samples: desktop.samples });
   }
 
   await writeJson(path.join(outputBase, 'screenshots', 'index.json'), entries);
+  await writeJson(path.join(outputBase, 'computed-style.json'), { pages: stylePages, site: aggregateSiteStyle(stylePages) });
   return entries;
 }
