@@ -10,7 +10,9 @@ Single CLI package, split by layer:
 
 - `utils/` — origin-agnostic primitives: URL resolution/normalization
   (`urls.js`), robots.txt fetch+parse (`robots.js`), rate limiting
-  (`rateLimiter.js`), retry/backoff (`backoff.js`), hashing (`hash.js`).
+  (`rateLimiter.js`), retry/backoff (`backoff.js`), hashing (`hash.js`),
+  CLI argv normalization (`argv.js` — pnpm ≥11 forwards the literal `--` of
+  `pnpm run scrape -- <url>` into argv, so every arg parser strips it first).
 - `extract/` — pure functions over already-fetched HTML/CSS strings: copy
   (`copy.js`), images (`images.js`), font `<link>`s (`fonts.js`), video URLs
   — `<video>`/`<source>`, YouTube/Vimeo/Wistia iframe embeds (also resolved
@@ -47,7 +49,9 @@ Single CLI package, split by layer:
     `links`; value normalized — digits-only tel, lowercased address — and
     deduped per section by `type:value`) and `listItems: [{ ordered,
     items }]` (top-level `<ul>/<ol>` only; a nested list's items are flattened
-    in document order into its parent list, never a separate entry).
+    in document order into its parent list, never a separate entry; a list
+    whose collected item texts are all empty — e.g. icon-only social links —
+    is omitted, so `items` is never `[]`).
   - An explicit ARIA `role="list"` claims a landmark of type `cards` —
     framework-agnostic (Wix "repeater" components emit it, but it's a
     standard pattern, not Wix-specific), so it catches card/venue/team grids
@@ -130,7 +134,11 @@ Single CLI package, split by layer:
   view and then take a moment to finish hydrating (e.g. Wix's `VideoPlayer`
   component, which ships an empty `<div>` with no `<iframe>` at all until
   this happens; confirmed a real Vimeo iframe appears for every widget once
-  scrolled-to-and-settled).
+  scrolled-to-and-settled). The HTML fallback opens its page with **no
+  explicit viewport** (Playwright's default 1280×720): Wix sizes responsive
+  image URLs to the viewport, so setting one silently rewrites every existing
+  `images[].url` (`h_720` → `h_800`). Screenshots use their own
+  1440×900 / 390×844 viewports in `renderNavPages.js`.
 - `crawler.js` — orchestrates `utils/` + `extract/` + `render/` into a
   same-origin BFS crawl. Owns the fetch/robots/rate-limit/backoff sequencing
   and the plain-fetch-vs-Playwright decision. Returns crawl results in
@@ -276,8 +284,14 @@ scrapeSite.js (runScrape)
     it instead of cross-referencing manifest.json for any of it — and
     restructure.js's merge just carries these already-resolved urls
     through unchanged, no extra work needed there.
+  → renderSitePages: home + every `nav.navTree` page through the shared
+    browser session → screenshots/<slug>-{desktop,mobile}.png +
+    screenshots/index.json + computed-style.json (per-page samples + site
+    aggregate); a page that fails records `error` in its index entry and the
+    run continues (see decisions/render-nav-pages-always-on.md)
   → write manifest.json, fonts.json, videos.json, structure.json (now with
-    resolved image urls), palette.json, copy.md, fetch-log.jsonl
+    resolved image urls), palette.json, site-colors.json, copy.md,
+    fetch-log.jsonl
   → returns { pages, images, videos } counts
 
 Batch mode (cliBatch.js)
