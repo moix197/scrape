@@ -78,6 +78,11 @@ Single CLI package, split by layer:
     social links) to the root and drops the per-page duplicates (see Data
     flow below); `extract/structure.js` itself is unaware of that and still
     returns everything per-page.
+  - Any new per-section field must be added to **both** the `mergeSections`
+    whitelist (`src/restructure.js`) and the `pickSiteFooter` whitelist
+    (`src/scrapeSite.js`): both rebuild sections from an explicit field list,
+    so an unlisted field silently vanishes on `restructure:apply` / in the
+    root-level `footer`.
 - `images/` — post-fetch image pipeline: download with timeout
   (`download.js`), URL/content dedupe + size filter (`dedup.js`), dominant
   color extraction via Jimp (`palette.js`), manifest building + JSON writing
@@ -96,11 +101,6 @@ Single CLI package, split by layer:
     `sectionLabel` fields still reflect first-occurrence only, kept for
     backward compat; `isLogo` needs no such merge since it's already a
     URL-level fact (`image.url === logoUrl`).
-  - Any new per-section field must be added to **both** the `mergeSections`
-    whitelist (`src/restructure.js`) and the `pickSiteFooter` whitelist
-    (`src/scrapeSite.js`): both rebuild sections from an explicit field list,
-    so an unlisted field silently vanishes on `restructure:apply` / in the
-    root-level `footer`.
 - `render/` — the I/O layer that drives the browser, and the only place
   `playwright` is imported: one shared browser session per run
   (`playwrightFallback.js`, also the client-rendered-page fallback), nav-page
