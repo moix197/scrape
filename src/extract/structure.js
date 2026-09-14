@@ -298,7 +298,6 @@ function extractSectionLinks($, scopeEl, pageUrl, excludeInside) {
 }
 
 function classifyContactHref(href) {
-  if (typeof href !== 'string') return null;
   if (href.startsWith('tel:')) return 'tel';
   if (href.startsWith('mailto:')) return 'mailto';
   return null;
