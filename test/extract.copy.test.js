@@ -67,3 +67,10 @@ test('extractSiteMeta defaults to null when lang/favicon absent', () => {
   const site = extractSiteMeta('<html><head><title>t</title></head></html>', 'https://acme.test/');
   assert.deepEqual(site, { lang: null, favicon: null });
 });
+
+test('extractSiteMeta matches favicon rel as a token list, not an exact string', () => {
+  const multiTokenHtml =
+    '<html><head><title>t</title><link rel="icon  shortcut" href="/favicon.png"></head></html>';
+  const site = extractSiteMeta(multiTokenHtml, 'https://acme.test/');
+  assert.deepEqual(site, { lang: null, favicon: 'https://acme.test/favicon.png' });
+});

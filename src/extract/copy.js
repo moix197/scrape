@@ -48,16 +48,19 @@ export function extractPageMeta(html, pageUrl) {
   };
 }
 
-const FAVICON_REL_TOKENS = new Set(['icon', 'shortcut icon', 'apple-touch-icon']);
+function isFaviconRel(rel) {
+  return rel
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .some((token) => token === 'icon' || token.startsWith('apple-touch-icon'));
+}
 
 function extractFavicon($, pageUrl) {
-  let href = null;
-  $('link[rel]').each((_, el) => {
-    if (href) return;
-    const rel = $(el).attr('rel')?.trim().toLowerCase();
-    if (rel && FAVICON_REL_TOKENS.has(rel)) href = $(el).attr('href');
-  });
-  return resolveUrl(pageUrl, href);
+  const link = $('link[rel]')
+    .filter((_, el) => isFaviconRel($(el).attr('rel') || ''))
+    .first();
+  return resolveUrl(pageUrl, link.attr('href'));
 }
 
 export function extractSiteMeta(html, pageUrl) {
