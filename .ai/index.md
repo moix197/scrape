@@ -9,13 +9,16 @@ anywhere real.
 
 | Module / package | Responsibility (one line) | Path | Decisions / patterns |
 | ---------------- | ------------------------- | ---- | -------------------- |
-| _empty_ | _Populate as packages are added._ | | |
+| `extract/structure` | page sections + per-section `contacts` / `listItems` / `form` | `src/extract/structure.js` | |
+| `extract/copy` | page meta (title, description, canonical, og, jsonLd) + site meta (lang, favicon) | `src/extract/copy.js` | |
+| `render/playwrightFallback` | one shared browser session per run; the only Playwright import | `src/render/playwrightFallback.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
+| `render/renderNavPages` | screenshots (desktop/mobile PNG) + `screenshots/index.json` for home + nav pages | `src/render/renderNavPages.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
+| `render/computedStyle` | getComputedStyle samples per page + site-level fonts/colors aggregate | `src/render/computedStyle.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
 
 ## Cross-cutting
 
 | Concern | Where it's handled | Notes |
 | ------- | ------------------ | ----- |
-| _empty_ | | |
+| fetch-log guardrail | `src/crawler.js` `fetchUrlWithLog` + `src/render/renderNavPages.js` | every network hit incl. screenshots logs `{url, status, timestamp, method}` |
 
-> Empty scaffold. Add the first row when the first module lands. Update via the
-> `sync-knowledge` skill — don't hand-edit drift in.
+> Update via the `sync-knowledge` skill — don't hand-edit drift in.

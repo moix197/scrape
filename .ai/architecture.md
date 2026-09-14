@@ -96,10 +96,21 @@ Single CLI package, split by layer:
     `sectionLabel` fields still reflect first-occurrence only, kept for
     backward compat; `isLogo` needs no such merge since it's already a
     URL-level fact (`image.url === logoUrl`).
-- `render/` — optional Playwright fallback (`playwrightFallback.js`) for
-  client-rendered pages. Lazily imports `playwright`; returns `null` on any
-  failure (not installed, nav timeout, crash) so the rest of the pipeline
-  never depends on it being present. Navigates with `waitUntil:
+  - Any new per-section field must be added to **both** the `mergeSections`
+    whitelist (`src/restructure.js`) and the `pickSiteFooter` whitelist
+    (`src/scrapeSite.js`): both rebuild sections from an explicit field list,
+    so an unlisted field silently vanishes on `restructure:apply` / in the
+    root-level `footer`.
+- `render/` — the I/O layer that drives the browser, and the only place
+  `playwright` is imported: one shared browser session per run
+  (`playwrightFallback.js`, also the client-rendered-page fallback), nav-page
+  rendering + screenshots (`renderNavPages.js`), computed-style sampling
+  (`computedStyle.js`). Home + every `navTree` page is rendered on every run,
+  no flag — see `decisions/render-nav-pages-always-on.md`. Pure aggregation /
+  normalization lives in functions that take plain data, so they are tested
+  without a browser. The session lazily imports `playwright` and resolves
+  `null` on any failure (not installed, nav timeout, crash) so the rest of the
+  pipeline never depends on it being present. The fallback navigates with `waitUntil:
   'domcontentloaded'` (not `'networkidle'` — confirmed against a real Wix
   site that `'networkidle'` can hang for the full timeout when a page has
   persistent background traffic like analytics/polling), then `autoScrollPage`

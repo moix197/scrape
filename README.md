@@ -11,17 +11,18 @@ an unpublished redesign pitch mockup.
 pnpm install
 ```
 
-Playwright is an optional dependency, used only as a fallback for pages that
+Playwright is an optional dependency, used as a fallback for pages that
 render their content client-side (e.g. via React/Vue) where a plain fetch
-yields little or no usable markup. If you need it:
+yields little or no usable markup, and to capture `screenshots/` and
+`computed-style.json` for the home page and nav pages. If you need it:
 
 ```
 pnpm add playwright
 pnpm exec playwright install chromium
 ```
 
-Without it, the tool still works — the fallback is skipped and plain-fetch
-HTML is used as-is.
+Without it, the tool still works — the fallback is skipped, plain-fetch
+HTML is used as-is, and screenshots / computed-style are skipped.
 
 ## Usage
 
@@ -54,19 +55,31 @@ Written to `<out>/<domain>/`:
 
 ```
 images/            downloaded, deduped, size-filtered images
+screenshots/       full-page PNGs of home + every nav page, desktop (1440) and mobile (390), plus index.json
 manifest.json      site url, scraped-at timestamp, pages, images (with local filenames)
 fonts.json         font links + @font-face entries discovered in linked stylesheets
 videos.json        video URLs discovered — <video>/<source>, YouTube/Vimeo/Wistia embeds, direct video-file links
 structure.json     per-page layout breakdown for rebuilding: sections (header/nav/hero/
                    gallery/about/contact/footer/etc.) in document order, each with its
-                   images/videos (in position order), headings, links, and body text;
-                   site-wide logo guess and deduped social-media links. Heuristic,
-                   DOM-based, best-effort — see "Structure extraction" below.
+                   images/videos (in position order), headings, links, body text,
+                   contacts (tel/mailto), listItems, and form (contact-form fields);
+                   per-page meta (title, description, canonical, og, jsonLd);
+                   site-wide logo guess, deduped social-media links, hoisted
+                   contacts, and site { lang, favicon }. Heuristic, DOM-based,
+                   best-effort — see "Structure extraction" below.
 palette.json       dominant colors extracted from the largest downloaded images
+site-colors.json   colors scored from CSS rules (button/nav/link/body/footer weighted)
+computed-style.json  per-page getComputedStyle samples (body/h1/h2/p/a/button/nav/header/footer) + site-level fonts/colors aggregate
 copy.md            one block per page (title, description), then one subsection per
                    structure.json section with that section's body text
 fetch-log.jsonl    one JSON line per HTTP fetch (url, status, timestamp, method)
 ```
+
+`screenshots/` and `computed-style.json` come from a real browser render of the
+home page and every nav page, so they need Playwright — an **optional**
+dependency (see "Install"). When it is not installed, or a page times out,
+screenshots and computed-style are skipped for that page, the failure is
+recorded as `error` in `screenshots/index.json`, and the exit code stays `0`.
 
 After running the restructure pass (see "Restructure pass" below), a site
 folder also gains:
@@ -212,3 +225,6 @@ Concretely, the crawler:
 - rate-limits every request (pages and same-origin stylesheets alike)
 - backs off and retries on `429`/`503` before giving up on a page
 - logs every fetch attempt (url, status, timestamp, method) to `fetch-log.jsonl`
+- treats screenshot captures (home + nav pages) as requests like any other:
+  rate-limited the same way and logged to `fetch-log.jsonl` with
+  `method: "screenshot"`
