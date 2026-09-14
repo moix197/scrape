@@ -4,18 +4,16 @@
 **Branch:** capture-rebuild-signals
 
 ## Stats
-- Ready: 2 · In Progress: 0 · Blocked: 4 · Done: 5 · Failed: 0
+- Ready: 1 · In Progress: 1 · Blocked: 3 · Done: 6 · Failed: 0
 
 ## Ready
 - [C00](cards/C00.md) — Create worktree
-- [C03](cards/C03.md) — Capture contact-form fields per section (deps: C02)
 
 ## In Progress
-_(none)_
+- [C05](cards/C05.md) — Capture page meta (canonical, og, JSON-LD) and site lang/favicon into structure.json (deps: C00) — session: execagent-C05
 
 ## Blocked
 - [C04](cards/C04.md) — Hoist site-wide contacts and carry new section fields through footer + restructure (deps: C01, C02, C03)
-- [C05](cards/C05.md) — Capture page meta (canonical, og, JSON-LD) and site lang/favicon into structure.json (deps: C00)
 - [C08](cards/C08.md) — Computed-style samples per rendered page + site-level fonts/colors aggregate (deps: C07)
 - [C10](cards/C10.md) — Final Verification (deps: C01, C02, C03, C04, C05, C06, C07, C08, C09)
 
@@ -25,6 +23,7 @@ _(none)_
 - [C06](cards/C06.md) — One shared browser session per run; renderWithPlaywright returns an object
 - [C02](cards/C02.md) — Capture list items per section
 - [C07](cards/C07.md) — Full-page desktop + mobile screenshots of home and every nav page
+- [C03](cards/C03.md) — Capture contact-form fields per section
 
 ## Failed
 _(none)_

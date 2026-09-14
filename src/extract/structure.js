@@ -498,6 +498,66 @@ function collectFormEls($, scopeEl) {
   return $(scopeEl).find('form').addBack('form').toArray();
 }
 
+const SKIPPED_INPUT_TYPES = new Set(['hidden', 'submit', 'button', 'reset', 'image']);
+
+function isCapturableField($, fieldEl) {
+  const tag = fieldEl.tagName.toLowerCase();
+  if (tag === 'textarea' || tag === 'select') return true;
+  if (tag !== 'input') return false;
+  const type = ($(fieldEl).attr('type') || 'text').toLowerCase();
+  return !SKIPPED_INPUT_TYPES.has(type);
+}
+
+function findLabelForId($, id) {
+  return $('label')
+    .toArray()
+    .find((label) => $(label).attr('for') === id);
+}
+
+// A wrapping <label>'s own text includes whatever the control itself renders (normally
+// nothing — input/textarea/select don't have text-node children) — cloning and stripping the
+// same-tag descendant keeps that from ever leaking into the label text.
+function wrappingLabelText($, fieldEl) {
+  const label = $(fieldEl).closest('label');
+  if (!label.length) return '';
+  return label.clone().find(fieldEl.tagName.toLowerCase()).remove().end().text();
+}
+
+function resolveFieldLabel($, fieldEl) {
+  const id = $(fieldEl).attr('id');
+  const forLabel = id ? findLabelForId($, id) : null;
+  const raw =
+    (forLabel ? $(forLabel).text() : '') ||
+    wrappingLabelText($, fieldEl) ||
+    $(fieldEl).attr('placeholder') ||
+    $(fieldEl).attr('aria-label') ||
+    $(fieldEl).attr('name') ||
+    '';
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+function isRequiredField($, fieldEl) {
+  return $(fieldEl).attr('required') !== undefined || $(fieldEl).attr('aria-required') === 'true';
+}
+
+function extractFormFields($, formEl) {
+  return $(formEl)
+    .find('input, textarea, select')
+    .toArray()
+    .filter((fieldEl) => isCapturableField($, fieldEl))
+    .map((fieldEl) => {
+      const tag = fieldEl.tagName.toLowerCase();
+      const type = tag === 'input' ? ($(fieldEl).attr('type') || 'text').toLowerCase() : tag;
+      return { label: resolveFieldLabel($, fieldEl), type, required: isRequiredField($, fieldEl) };
+    });
+}
+
+// Only the first form in the section is captured — matches collectFormEls' own document order.
+function extractSectionForm($, sectionEl) {
+  const formEl = collectFormEls($, sectionEl)[0];
+  return formEl ? { fields: extractFormFields($, formEl) } : null;
+}
+
 function extractSectionContent($, scopeEl, pageUrl, { excludeInside = [] } = {}) {
   const excludeAll = [...excludeInside, ...collectFormEls($, scopeEl)];
   return {
@@ -508,6 +568,7 @@ function extractSectionContent($, scopeEl, pageUrl, { excludeInside = [] } = {})
     contacts: extractSectionContacts($, scopeEl, excludeAll),
     text: extractSectionText($, scopeEl, excludeAll),
     listItems: extractSectionListItems($, scopeEl, excludeAll),
+    form: extractSectionForm($, scopeEl),
   };
 }
 
@@ -576,9 +637,12 @@ function findUnclaimedRoots($, containerEl, claimedEls) {
   return roots;
 }
 
+// `form` is an object|null, not a list — unlike every other content field, its presence alone
+// (even with an empty fields array, e.g. a bare <form> with no capturable fields) isn't a
+// reliable "this uncategorized root has real content" signal, so it's excluded from the check.
 function buildUncategorizedSection($, root, pageUrl, order) {
   const content = extractSectionContent($, root, pageUrl, {});
-  const isEmpty = Object.values(content).every((list) => list.length === 0);
+  const isEmpty = Object.entries(content).every(([key, value]) => key === 'form' || value.length === 0);
   if (isEmpty) return null;
   const firstHeading = content.headings[0];
   return {

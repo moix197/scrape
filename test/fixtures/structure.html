@@ -65,8 +65,11 @@
     <iframe src="https://www.google.com/maps/embed?pb=xyz"></iframe>
     <form action="/submit">
       <h3>Send us a message</h3>
-      <label>Your name</label>
-      <input type="text" placeholder="Jane Doe">
+      <label for="name">Name</label><input id="name" name="name" required>
+      <label>Email <input type="email" name="email" value="prefilled@example.com"></label>
+      <textarea name="message" placeholder="Your message" aria-required="true"></textarea>
+      <select name="topic"><option>Sales</option></select>
+      <input type="hidden" name="csrf" value="x">
       <a href="https://example.com/privacy">Privacy policy</a>
       <img src="/form-icon.png" alt="Form icon">
       <button type="submit">Submit</button>

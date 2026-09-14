@@ -231,6 +231,29 @@ test('extractPageStructure excludes a <form>\'s labels, buttons, links, images, 
   assert.ok(!contact.images.some((img) => img.url === 'https://example.com/form-icon.png'));
 });
 
+test('extractPageStructure captures a section\'s contact-form fields, in document order, with no values', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const contact = findSection(structure, 'contact');
+
+  assert.deepEqual(contact.form, {
+    fields: [
+      { label: 'Name', type: 'text', required: true },
+      { label: 'Email', type: 'email', required: false },
+      { label: 'Your message', type: 'textarea', required: true },
+      { label: 'topic', type: 'select', required: false },
+    ],
+  });
+  assert.ok(!contact.form.fields.some((field) => 'value' in field));
+  const serialized = JSON.stringify(contact.form);
+  assert.ok(!serialized.includes('prefilled@example.com'));
+  assert.ok(!serialized.includes('csrf'));
+});
+
+test('extractPageStructure gives a section with no <form> a null form', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  assert.equal(findSection(structure, 'hero').form, null);
+});
+
 test('extractPageStructure produces no section at all for a bare <form> outside any landmark', () => {
   const structure = extractPageStructure(html, pageUrl);
   const uncategorized = findSections(structure, 'uncategorized');
