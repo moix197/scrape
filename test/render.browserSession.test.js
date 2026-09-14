@@ -79,6 +79,25 @@ test('renderWithPlaywright resolves an object { html }, never a bare string', as
   assert.deepEqual(rendered, { html: '<html>ok</html>' });
 });
 
+test('renderWithPlaywright does not force an explicit viewport, relying on Playwright default 1280x720', async () => {
+  const fakePage = makeFakePage();
+  const newPageCalls = [];
+  const fakeBrowser = {
+    newPage: async (...args) => {
+      newPageCalls.push(args[0]);
+      return fakePage;
+    },
+    close: async () => {},
+  };
+  const loader = makeFakeLoader(fakeBrowser);
+  const session = await createBrowserSession({ loadPlaywright: loader.load });
+
+  await renderWithPlaywright('https://x', { session });
+
+  assert.equal(newPageCalls.length, 1);
+  assert.equal(newPageCalls[0], undefined, 'newPage must be called with no options, letting Playwright use its own default viewport');
+});
+
 test('a rejected chromium.launch degrades withPage to null and close() still resolves without throwing', async () => {
   const loader = {
     load: async () => ({

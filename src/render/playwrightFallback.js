@@ -23,8 +23,8 @@ async function launchBrowser(playwright) {
   return await playwright.chromium.launch({ headless: true });
 }
 
-async function openPage(browser, { width, height }) {
-  return await browser.newPage({ viewport: { width, height } });
+async function openPage(browser, viewport) {
+  return viewport ? await browser.newPage({ viewport }) : await browser.newPage();
 }
 
 async function runOnPage(page, url, timeoutMs, fn) {
@@ -84,7 +84,7 @@ export async function createBrowserSession({ timeoutMs = 20000, loadPlaywright: 
 export async function renderWithPlaywright(url, { session, timeoutMs = 20000 } = {}) {
   const ownSession = session ?? (await createBrowserSession({ timeoutMs }));
   try {
-    const html = await ownSession.withPage(url, { width: 1280, height: 800 }, (page) => page.content());
+    const html = await ownSession.withPage(url, null, (page) => page.content());
     return html === null ? null : { html };
   } finally {
     if (!session) await ownSession.close();
