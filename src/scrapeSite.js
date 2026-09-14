@@ -9,6 +9,7 @@ import { createContentDedupe, passesSizeFilter } from './images/dedup.js';
 import { extractDominantColors } from './images/palette.js';
 import { createManifestBuilder, writeJson, buildManifestImageMap, resolveStructureImageUrls } from './images/manifest.js';
 import { scoreSiteColors } from './extract/colors.js';
+import { createBrowserSession } from './render/playwrightFallback.js';
 
 const TOP_IMAGES_FOR_PALETTE = 5;
 const USER_AGENT = 'site-scraper/0.1 (+pitch-mockup research)';
@@ -210,13 +211,14 @@ function logProgress(page) {
   console.log(`crawled: ${page.url}`);
 }
 
-async function crawlAndBuildManifest(cliOptions, manifest, fetchLog) {
+async function crawlAndBuildManifest(cliOptions, manifest, fetchLog, browserSession) {
   const crawlResult = await crawlSite(cliOptions.rootUrl, {
     maxPages: cliOptions.maxPages,
     maxDepth: cliOptions.maxDepth,
     requestsPerSecond: cliOptions.rate,
     userAgent: USER_AGENT,
     forcePlaywright: cliOptions.forcePlaywright,
+    browserSession,
     onFetchLogged: (entry) => fetchLog.push(entry),
     onPageCrawled: logProgress,
   });
@@ -336,56 +338,64 @@ export async function runScrape(cliOptions) {
   const outputBase = path.join(cliOptions.out, getDomainFolderName(cliOptions.rootUrl));
   const fetchLog = [];
   const manifest = createManifestBuilder(cliOptions.rootUrl);
+  // One browser session for the whole run — reused by the render fallback below and, in later
+  // cards, by screenshot capture and computed-style sampling — so it must stay open past the
+  // crawl and only close once everything that might use it has finished.
+  const browserSession = await createBrowserSession();
 
-  console.log(`Crawling ${originUrl} (max ${cliOptions.maxPages} pages, depth ${cliOptions.maxDepth})...`);
-  const crawlResult = await crawlAndBuildManifest(cliOptions, manifest, fetchLog);
-  if (crawlResult.pages.length === 0) {
-    throw new Error(`No pages could be crawled from ${cliOptions.rootUrl} (unreachable, or disallowed by robots.txt).`);
+  try {
+    console.log(`Crawling ${originUrl} (max ${cliOptions.maxPages} pages, depth ${cliOptions.maxDepth})...`);
+    const crawlResult = await crawlAndBuildManifest(cliOptions, manifest, fetchLog, browserSession);
+    if (crawlResult.pages.length === 0) {
+      throw new Error(`No pages could be crawled from ${cliOptions.rootUrl} (unreachable, or disallowed by robots.txt).`);
+    }
+
+    const structureOutput = buildStructureOutput(crawlResult.pages);
+    const imageSectionLookup = buildImageSectionLookup(crawlResult.pages);
+    const logoUrl = structureOutput.logo?.url ?? null;
+
+    const sizeFilterOptions = {
+      minWidth: cliOptions.minWidth,
+      minHeight: cliOptions.minHeight,
+      minBytes: cliOptions.minBytes,
+    };
+
+    const previousImagesByUrl = await loadPreviousImageCache(outputBase, { fresh: cliOptions.fresh });
+
+    console.log(
+      `Downloading ${crawlResult.images.length} discovered images` +
+        (previousImagesByUrl.size ? ` (reusing already-downloaded ones from a prior scrape; pass --fresh to force re-download)` : '') +
+        `...`,
+    );
+    const { saved: savedImages, topByBytes, reusedFromCache } = await processImages(crawlResult.images, {
+      outputBase,
+      userAgent: USER_AGENT,
+      sizeFilterOptions,
+      manifest,
+      imageSectionLookup,
+      logoUrl,
+      previousImagesByUrl,
+    });
+
+    const palette = await buildPalette(topByBytes);
+
+    // Deterministic — resolve each image's url/width/height now, while the manifest is still in
+    // memory, so structure.json (and anything derived from it, e.g. restructure.js's
+    // structure.restructured.json) never needs a second cross-reference against manifest.json.
+    const manifestByUrl = buildManifestImageMap(manifest.build().images);
+    const resolvedStructureOutput = resolveStructureImageUrls(structureOutput, manifestByUrl);
+
+    await writeAllOutputs(outputBase, { manifest, crawlResult, palette, fetchLog, structureOutput: resolvedStructureOutput });
+
+    console.log(
+      `\nDone. Pages crawled: ${crawlResult.pages.length}. Images saved: ${savedImages.length}` +
+        (reusedFromCache ? ` (${reusedFromCache} reused from a prior scrape, no re-download)` : '') +
+        `. Videos found: ${crawlResult.videos.length}.`,
+    );
+    console.log(`Output written to: ${outputBase}`);
+
+    return { pages: crawlResult.pages.length, images: savedImages.length, videos: crawlResult.videos.length };
+  } finally {
+    await browserSession.close();
   }
-
-  const structureOutput = buildStructureOutput(crawlResult.pages);
-  const imageSectionLookup = buildImageSectionLookup(crawlResult.pages);
-  const logoUrl = structureOutput.logo?.url ?? null;
-
-  const sizeFilterOptions = {
-    minWidth: cliOptions.minWidth,
-    minHeight: cliOptions.minHeight,
-    minBytes: cliOptions.minBytes,
-  };
-
-  const previousImagesByUrl = await loadPreviousImageCache(outputBase, { fresh: cliOptions.fresh });
-
-  console.log(
-    `Downloading ${crawlResult.images.length} discovered images` +
-      (previousImagesByUrl.size ? ` (reusing already-downloaded ones from a prior scrape; pass --fresh to force re-download)` : '') +
-      `...`,
-  );
-  const { saved: savedImages, topByBytes, reusedFromCache } = await processImages(crawlResult.images, {
-    outputBase,
-    userAgent: USER_AGENT,
-    sizeFilterOptions,
-    manifest,
-    imageSectionLookup,
-    logoUrl,
-    previousImagesByUrl,
-  });
-
-  const palette = await buildPalette(topByBytes);
-
-  // Deterministic — resolve each image's url/width/height now, while the manifest is still in
-  // memory, so structure.json (and anything derived from it, e.g. restructure.js's
-  // structure.restructured.json) never needs a second cross-reference against manifest.json.
-  const manifestByUrl = buildManifestImageMap(manifest.build().images);
-  const resolvedStructureOutput = resolveStructureImageUrls(structureOutput, manifestByUrl);
-
-  await writeAllOutputs(outputBase, { manifest, crawlResult, palette, fetchLog, structureOutput: resolvedStructureOutput });
-
-  console.log(
-    `\nDone. Pages crawled: ${crawlResult.pages.length}. Images saved: ${savedImages.length}` +
-      (reusedFromCache ? ` (${reusedFromCache} reused from a prior scrape, no re-download)` : '') +
-      `. Videos found: ${crawlResult.videos.length}.`,
-  );
-  console.log(`Output written to: ${outputBase}`);
-
-  return { pages: crawlResult.pages.length, images: savedImages.length, videos: crawlResult.videos.length };
 }

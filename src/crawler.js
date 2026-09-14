@@ -59,7 +59,7 @@ async function fetchUrlWithLog({ url, userAgent, rateLimiter, onFetchLogged, met
   return response;
 }
 
-async function fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright }) {
+async function fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, browserSession }) {
   let response;
   try {
     response = await fetchUrlWithLog({ url, userAgent, rateLimiter, onFetchLogged });
@@ -74,11 +74,11 @@ async function fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minIm
     forcePlaywright || isLikelyClientRendered(plainHtml, url, minImagesThreshold) || isLikelyLazyVideoPage(plainHtml, url);
   if (!shouldTryPlaywright) return plainHtml;
 
-  const renderedHtml = await renderWithPlaywright(url);
-  if (renderedHtml === null) return plainHtml;
+  const rendered = await renderWithPlaywright(url, { session: browserSession });
+  if (!rendered) return plainHtml;
 
   onFetchLogged?.({ url, status: 200, timestamp: new Date().toISOString(), method: 'playwright' });
-  return renderedHtml;
+  return rendered.html;
 }
 
 function isLikelyClientRendered(html, pageUrl, minImagesThreshold) {
@@ -119,8 +119,8 @@ async function collectStylesheetExtras(html, pageUrl, deps) {
 }
 
 async function processPage(url, deps) {
-  const { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, originUrl, robotsRules } = deps;
-  const html = await fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright });
+  const { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, originUrl, robotsRules, browserSession } = deps;
+  const html = await fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, browserSession });
   if (html === null) return null;
 
   const meta = extractPageMeta(html);
@@ -162,6 +162,7 @@ export async function crawlSite(rootUrl, options = {}) {
     forcePlaywright = false,
     onFetchLogged,
     onPageCrawled,
+    browserSession,
   } = options;
 
   const originUrl = new URL(rootUrl).origin;
@@ -191,6 +192,7 @@ export async function crawlSite(rootUrl, options = {}) {
       forcePlaywright,
       originUrl,
       robotsRules,
+      browserSession,
     });
 
     if (result === null) continue;

@@ -19,24 +19,65 @@ async function autoScrollPage(page, { steps = 10, stepDelayMs = 400, settleMs = 
   await page.waitForTimeout(settleMs);
 }
 
-export async function renderWithPlaywright(url, { timeoutMs = 20000 } = {}) {
-  const playwright = await loadPlaywright();
-  if (!playwright) return null;
+async function launchBrowser(playwright) {
+  return await playwright.chromium.launch({ headless: true });
+}
 
-  let browser = null;
+async function openPage(browser, { width, height }) {
+  return await browser.newPage({ viewport: { width, height } });
+}
+
+async function runOnPage(page, url, timeoutMs, fn) {
   try {
-    browser = await playwright.chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    // 'networkidle' never resolves on pages with persistent background traffic (analytics,
-    // polling — confirmed against a real Wix site, where it reliably hit the full timeout) —
-    // domcontentloaded plus the explicit scroll/settle wait below is both safer and, for
-    // lazy-hydrated widgets, more effective than networkidle ever was.
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+    await page.goto(url, { waitUntil: 'networkidle', timeout: timeoutMs });
     await autoScrollPage(page);
-    return await page.content();
+    return await fn(page);
   } catch {
     return null;
   } finally {
-    if (browser) await browser.close();
+    await page.close();
+  }
+}
+
+// One browser per scrape run (rather than one per page) so C07's screenshots and C08's
+// computed-style sampling can share it with this render fallback. Chromium is launched lazily
+// on the first withPage() call, so a run whose pages never need rendering never pays for it.
+export async function createBrowserSession({ timeoutMs = 20000, loadPlaywright: load = loadPlaywright } = {}) {
+  const playwright = await load();
+  const available = playwright !== null;
+
+  let browserPromise = null;
+  function ensureBrowser() {
+    if (!browserPromise) browserPromise = launchBrowser(playwright);
+    return browserPromise;
+  }
+
+  async function withPage(url, viewport, fn) {
+    if (!available) return null;
+    try {
+      const browser = await ensureBrowser();
+      const page = await openPage(browser, viewport);
+      return await runOnPage(page, url, timeoutMs, fn);
+    } catch {
+      return null;
+    }
+  }
+
+  async function close() {
+    if (!browserPromise) return;
+    const browser = await browserPromise;
+    await browser.close();
+  }
+
+  return { available, withPage, close };
+}
+
+export async function renderWithPlaywright(url, { session, timeoutMs = 20000 } = {}) {
+  const ownSession = session ?? (await createBrowserSession({ timeoutMs }));
+  try {
+    const html = await ownSession.withPage(url, { width: 1280, height: 800 }, (page) => page.content());
+    return html === null ? null : { html };
+  } finally {
+    if (!session) await ownSession.close();
   }
 }

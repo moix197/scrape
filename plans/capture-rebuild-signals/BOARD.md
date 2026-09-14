@@ -4,13 +4,13 @@
 **Branch:** capture-rebuild-signals
 
 ## Stats
-- Ready: 1 · In Progress: 1 · Blocked: 7 · Done: 2 · Failed: 0
+- Ready: 1 · In Progress: 0 · Blocked: 7 · Done: 3 · Failed: 0
 
 ## Ready
 - [C00](cards/C00.md) — Create worktree
 
 ## In Progress
-- [C06](cards/C06.md) — One shared browser session per run; renderWithPlaywright returns an object (session: execagent-C06)
+_(none)_
 
 ## Blocked
 - [C02](cards/C02.md) — Capture list items per section (deps: C01)
@@ -24,6 +24,7 @@
 ## Done
 - [x] [C09](cards/C09.md) — Document new outputs and record the always-on render decision (commit: 64f70e6)
 - [C01](cards/C01.md) — Capture tel/mailto contacts per section
+- [C06](cards/C06.md) — One shared browser session per run; renderWithPlaywright returns an object
 
 ## Failed
 _(none)_
