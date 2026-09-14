@@ -34,11 +34,20 @@ Single CLI package, split by layer:
     just a container wrapping one as a descendant — plain `.find()` only
     sees descendants).
   - `<form>` elements (and everything inside them — labels, placeholders,
-    buttons, links, images) are excluded from extraction entirely, the same
-    way an already-claimed landmark's nested landmark is excluded from its
-    wrapper: form UI copy ("Name", "Submit") isn't page content. A bare form
-    outside any landmark now produces no section at all (its content comes
-    back empty and is dropped) rather than showing up as noise.
+    buttons, links, images) are excluded from the text/media/link extraction,
+    the same way an already-claimed landmark's nested landmark is excluded
+    from its wrapper: form UI copy ("Name", "Submit") isn't page content.
+    Instead the section's first form is captured structurally as `form:
+    { fields: [{ label, type, required }] } | null` (hidden/submit/button
+    inputs skipped; label resolved from `<label for>` → wrapping `<label>` →
+    placeholder → aria-label → name). `form` is the one non-list content
+    field, so it does not count toward "this uncategorized root has content".
+  - Every section also carries `contacts: [{ type: 'tel'|'mailto', value,
+    label }]` (from `tel:`/`mailto:` anchors, which are deliberately *not* in
+    `links`; value normalized — digits-only tel, lowercased address — and
+    deduped per section by `type:value`) and `listItems: [{ ordered,
+    items }]` (top-level `<ul>/<ol>` only; a nested list's items are flattened
+    in document order into its parent list, never a separate entry).
   - An explicit ARIA `role="list"` claims a landmark of type `cards` —
     framework-agnostic (Wix "repeater" components emit it, but it's a
     standard pattern, not Wix-specific), so it catches card/venue/team grids
@@ -79,10 +88,12 @@ Single CLI package, split by layer:
     flow below); `extract/structure.js` itself is unaware of that and still
     returns everything per-page.
   - Any new per-section field must be added to **both** the `mergeSections`
-    whitelist (`src/restructure.js`) and the `pickSiteFooter` whitelist
-    (`src/scrapeSite.js`): both rebuild sections from an explicit field list,
-    so an unlisted field silently vanishes on `restructure:apply` / in the
-    root-level `footer`.
+    whitelist (`src/restructure.js`) and the `pickSiteFooter` whitelist +
+    `footerContentKey` (`src/scrapeSite.js`): both rebuild sections from an
+    explicit field list, so an unlisted field silently vanishes on
+    `restructure:apply` / in the root-level `footer`, and a field missing
+    from the consistency key never triggers the "inconsistent footer"
+    warning. `contacts`/`listItems`/`form` are already in all three.
 - `images/` — post-fetch image pipeline: download with timeout
   (`download.js`), URL/content dedupe + size filter (`dedup.js`), dominant
   color extraction via Jimp (`palette.js`), manifest building + JSON writing
@@ -184,8 +195,9 @@ crawlSite (BFS, same-origin, depth/page-capped)
       of a *different* type (e.g. a real <nav> inside <header>, the common
       case) is claimed independently of its wrapper rather than swallowed by
       it; only nesting of the *same* type is treated as a duplicate wrapper
-      and skipped → per-landmark images/videos/headings/links (excluding any
-      nested landmark's own subtree and any <form>'s contents) → each
+      and skipped → per-landmark images/videos/headings/links/contacts/
+      listItems (excluding any nested landmark's own subtree and any <form>'s
+      contents) + the landmark's first <form> as `form` → each
       maximal unclaimed subtree becomes its own "uncategorized" section
       (never one blob merging unrelated content, see extract/ above) → logo
       + social/nav link rollups) — attached to each page as page.structure
@@ -227,11 +239,18 @@ scrapeSite.js (runScrape)
     `logo`/`socialLinks`/`pages`) — `nav` is `{navLinks, navTree}` taken from
     the first page's (consistent-across-pages, since one `<nav>` per site);
     `footer` is the first `type: "footer"` section's `{images, videos,
-    headings, links, text}` found across pages, or `null` if no page has one.
-    A page's own `sections[]` then has its `nav`/`footer`-type entries
-    stripped (now redundant with the root fields) and its per-page
-    `navLinks`/`navTree`/`socialLinks` fields dropped entirely — a page object
-    in structure.json is just `{url, name, sections, logo}`. If pages'
+    headings, links, text, contacts, listItems, form}` found across pages, or
+    `null` if no page has one. Root-level `contacts` (`collectSiteContacts`)
+    hoists every section's `contacts` across every page — nav/footer sections
+    included, since this runs *before* they're stripped below — first crawl
+    order wins, deduped by `type:value`, each entry extended with `where:
+    { page, sectionOrder }` so a consumer can trace it back; per-section
+    `contacts` are left in place (not moved), so the same contact legitimately
+    appears in both. A page's own `sections[]` then has its
+    `nav`/`footer`-type entries stripped (now redundant with the root fields)
+    and its per-page `navLinks`/`navTree`/`socialLinks` fields dropped
+    entirely — a page object in structure.json is just `{url, name, sections,
+    logo, meta}`. If pages'
     nav/footer content actually diverges (not expected — same site, one
     global nav/footer — but checked, not assumed), a console.warn fires and
     the first page's version still wins as the root value; nothing throws.
@@ -333,7 +352,11 @@ restructureSiteDir(siteDir)
       none of the merged sources had any — this has to be listed explicitly
       in `mergeSections`, unlike plain object-spread, or a field added to
       `extract/structure.js`'s section shape silently vanishes here even
-      though the file's mtime says "restructured after this fix".
+      though the file's mtime says "restructured after this fix". Likewise
+      `contacts` (concatenated then first-wins deduped by `type:value`, same
+      key as `collectSiteContacts`), `listItems` (concatenated) and `form`
+      (first non-null source's, else `null` — a merge can't combine two
+      forms) are listed explicitly.
   → write structure.restructured.json, copy.restructured.md,
     restructure-status.json (site-level done/counts, no per-page resume —
     `--fresh` re-runs every page); mirrors `restructured: true` into
