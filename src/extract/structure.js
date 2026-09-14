@@ -297,6 +297,43 @@ function extractSectionLinks($, scopeEl, pageUrl, excludeInside) {
   return links;
 }
 
+function classifyContactHref(href) {
+  if (typeof href !== 'string') return null;
+  if (href.startsWith('tel:')) return 'tel';
+  if (href.startsWith('mailto:')) return 'mailto';
+  return null;
+}
+
+function normalizeTelValue(href) {
+  const raw = href.slice('tel:'.length);
+  const digits = raw.replace(/\D/g, '');
+  return raw.trim().startsWith('+') ? `+${digits}` : digits;
+}
+
+function normalizeMailtoValue(href) {
+  const address = href.slice('mailto:'.length).split('?')[0];
+  return address.trim().toLowerCase();
+}
+
+function extractSectionContacts($, scopeEl, excludeInside) {
+  const contacts = new Map();
+  $(scopeEl)
+    .find('a[href]')
+    .addBack('a[href]')
+    .each((_, el) => {
+      if (isExcluded($, el, excludeInside)) return;
+      const href = $(el).attr('href');
+      const type = classifyContactHref(href);
+      if (!type) return;
+      const value = type === 'tel' ? normalizeTelValue(href) : normalizeMailtoValue(href);
+      const key = `${type}:${value}`;
+      if (contacts.has(key)) return;
+      const label = $(el).text().trim();
+      contacts.set(key, { type, value, label: label || value });
+    });
+  return [...contacts.values()];
+}
+
 // A dropdown/submenu toggle is often an <a> with no real destination (`href="#"`,
 // `href="javascript:void(0)"`, or empty) — same idea as `isPlaceholderIframeSrc` for iframes:
 // a non-empty attribute that still means "nothing real here", so it must not be treated as a
@@ -425,6 +462,7 @@ function extractSectionContent($, scopeEl, pageUrl, { excludeInside = [] } = {})
     videos: extractSectionVideos($, scopeEl, pageUrl, excludeAll),
     headings: extractSectionHeadings($, scopeEl, excludeAll),
     links: extractSectionLinks($, scopeEl, pageUrl, excludeAll),
+    contacts: extractSectionContacts($, scopeEl, excludeAll),
     text: extractSectionText($, scopeEl, excludeAll),
   };
 }

@@ -182,12 +182,38 @@ test('extractPageStructure treats iframe src="about:blank" as a placeholder and 
 test('extractPageStructure gives each section its own scoped body text', () => {
   const structure = extractPageStructure(html, pageUrl);
   assert.equal(findSection(structure, 'about').text, 'About Us We build things.');
-  assert.equal(findSection(structure, 'footer').text, 'Twitter X YouTube © 2026 Acme Inc.');
+  assert.equal(findSection(structure, 'footer').text, 'Twitter X YouTube © 2026 Acme Inc. 555-010-2020');
 });
 
 test('extractPageStructure includes link text in a section\'s body text', () => {
   const structure = extractPageStructure(html, pageUrl);
-  assert.equal(findSection(structure, 'contact').text, 'Contact Us Facebook Instagram Email us');
+  assert.equal(findSection(structure, 'contact').text, 'Contact Us Facebook Instagram Email us Call us Email');
+});
+
+test('extractPageStructure captures deduped tel/mailto contacts for a section, in document order', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const contact = findSection(structure, 'contact');
+  assert.deepEqual(contact.contacts, [
+    { type: 'mailto', value: 'hello@acme.com', label: 'Email us' },
+    { type: 'tel', value: '+15550102020', label: 'Call us' },
+  ]);
+});
+
+test('extractPageStructure normalizes a bare tel: href to digits only', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const footer = findSection(structure, 'footer');
+  assert.deepEqual(footer.contacts, [{ type: 'tel', value: '5550102020', label: '555-010-2020' }]);
+});
+
+test('extractPageStructure gives a section with no tel/mailto anchors an empty contacts array', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  assert.deepEqual(findSection(structure, 'hero').contacts, []);
+});
+
+test('extractPageStructure keeps tel/mailto hrefs out of a section\'s links array', () => {
+  const structure = extractPageStructure(html, pageUrl);
+  const contact = findSection(structure, 'contact');
+  assert.ok(!contact.links.some((l) => l.url.startsWith('tel:') || l.url.startsWith('mailto:')));
 });
 
 test('extractPageStructure excludes a <form>\'s labels, buttons, links, images, and headings from its containing section entirely', () => {
