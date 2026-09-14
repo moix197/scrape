@@ -10,6 +10,8 @@ import { extractDominantColors } from './images/palette.js';
 import { createManifestBuilder, writeJson, buildManifestImageMap, resolveStructureImageUrls } from './images/manifest.js';
 import { scoreSiteColors } from './extract/colors.js';
 import { createBrowserSession } from './render/playwrightFallback.js';
+import { buildRenderTargets, renderNavPages } from './render/renderNavPages.js';
+import { createRateLimiter } from './utils/rateLimiter.js';
 
 const TOP_IMAGES_FOR_PALETTE = 5;
 const USER_AGENT = 'site-scraper/0.1 (+pitch-mockup research)';
@@ -322,6 +324,23 @@ export function buildImageSectionLookup(pages) {
   return lookup;
 }
 
+// Home + every crawled nav-tree page, screenshotted at desktop and mobile viewports via the
+// C06 shared browser session — gives the downstream rebuild real before/after material.
+async function renderSitePages(cliOptions, browserSession, structureOutput, crawlResult, outputBase, fetchLog) {
+  const targets = buildRenderTargets({
+    rootUrl: cliOptions.rootUrl,
+    navTree: structureOutput.nav?.navTree ?? [],
+    crawledUrls: crawlResult.pages.map((p) => p.url),
+  });
+  return renderNavPages({
+    session: browserSession,
+    targets,
+    outputBase,
+    onFetchLogged: (entry) => fetchLog.push(entry),
+    rateLimiter: createRateLimiter(cliOptions.rate),
+  });
+}
+
 async function writeAllOutputs(outputBase, { manifest, crawlResult, palette, fetchLog, structureOutput }) {
   await writeJson(path.join(outputBase, 'manifest.json'), manifest.build());
   await writeJson(path.join(outputBase, 'fonts.json'), crawlResult.fonts);
@@ -384,6 +403,10 @@ export async function runScrape(cliOptions) {
     // structure.restructured.json) never needs a second cross-reference against manifest.json.
     const manifestByUrl = buildManifestImageMap(manifest.build().images);
     const resolvedStructureOutput = resolveStructureImageUrls(structureOutput, manifestByUrl);
+
+    const screenshotIndex = await renderSitePages(cliOptions, browserSession, structureOutput, crawlResult, outputBase, fetchLog);
+    const screenshotsCaptured = screenshotIndex.filter((entry) => !entry.error).length;
+    console.log(`Screenshots: ${screenshotsCaptured} captured, ${screenshotIndex.length - screenshotsCaptured} failed`);
 
     await writeAllOutputs(outputBase, { manifest, crawlResult, palette, fetchLog, structureOutput: resolvedStructureOutput });
 
