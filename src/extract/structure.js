@@ -252,21 +252,30 @@ function extractSectionHeadings($, scopeEl, excludeInside) {
 
 const NON_TEXT_TAGS = new Set(['script', 'style', 'noscript', 'template']);
 
+const INLINE_TAGS = new Set([
+  'a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'dfn', 'em', 'font', 'i', 'kbd', 'mark',
+  'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr',
+]);
+
+// Text in document order, including text inside inline elements (<a>, <strong>, ...).
+// Non-inline elements add a space boundary so adjacent blocks don't glue together.
+function collectTextInOrder($, node, excludeInside, out) {
+  if (node.type === 'text') {
+    out.push(node.data);
+    return;
+  }
+  if (node.type !== 'tag' || NON_TEXT_TAGS.has(node.tagName?.toLowerCase())) return;
+  if (isExcluded($, node, excludeInside)) return;
+  const isBlock = !INLINE_TAGS.has(node.tagName.toLowerCase());
+  if (isBlock) out.push(' ');
+  for (const child of node.children ?? []) collectTextInOrder($, child, excludeInside, out);
+  if (isBlock) out.push(' ');
+}
+
 function extractSectionText($, scopeEl, excludeInside) {
-  const parts = [];
-  $(scopeEl)
-    .find('*')
-    .addBack()
-    .each((_, el) => {
-      if (NON_TEXT_TAGS.has(el.tagName?.toLowerCase())) return;
-      if (isExcluded($, el, excludeInside)) return;
-      $(el)
-        .contents()
-        .each((__, node) => {
-          if (node.type === 'text' && node.data.trim()) parts.push(node.data.trim());
-        });
-    });
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
+  const out = [];
+  collectTextInOrder($, scopeEl, excludeInside, out);
+  return out.join('').replace(/\s+/g, ' ').trim();
 }
 
 // Flattens one top-level list's items: a nested ul/ol inside an <li> is not its own entry —
@@ -581,7 +590,7 @@ function extractSectionContent($, scopeEl, pageUrl, { excludeInside = [] } = {})
 function tagWithNthSuffix($, node) {
   const tag = node.tagName.toLowerCase();
   if (!node.parent) return tag;
-  const siblingsOfType = $(node.parent).children(tag).toArray();
+  const siblingsOfType = (node.parent.children ?? []).filter((sibling) => sibling.tagName?.toLowerCase() === tag);
   return siblingsOfType.length > 1 ? `${tag}:nth-of-type(${siblingsOfType.indexOf(node) + 1})` : tag;
 }
 

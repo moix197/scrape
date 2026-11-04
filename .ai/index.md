@@ -11,6 +11,7 @@ anywhere real.
 | ---------------- | ------------------------- | ---- | -------------------- |
 | `extract/structure` | page sections + per-section `contacts` / `listItems` / `form` | `src/extract/structure.js` | |
 | `extract/copy` | page meta (title, description, canonical, og, jsonLd) + site meta (lang, favicon) | `src/extract/copy.js` | |
+| `utils/decodeHtml` | byte-level HTML charset detection + decode | `src/utils/decodeHtml.js` | [html-charset-decoding](decisions/html-charset-decoding.md) |
 | `render/playwrightFallback` | one shared browser session per run; the only Playwright import | `src/render/playwrightFallback.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
 | `render/renderNavPages` | screenshots (desktop/mobile PNG) + `screenshots/index.json` for home + nav pages | `src/render/renderNavPages.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
 | `render/computedStyle` | getComputedStyle samples per page + site-level fonts/colors aggregate | `src/render/computedStyle.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |

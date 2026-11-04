@@ -3,6 +3,7 @@ import { resolveUrl, isSameOrigin, normalizeUrl } from './utils/urls.js';
 import { fetchRobotsRules, isAllowed } from './utils/robots.js';
 import { createRateLimiter } from './utils/rateLimiter.js';
 import { withBackoff } from './utils/backoff.js';
+import { readResponseHtml } from './utils/decodeHtml.js';
 import { extractImages } from './extract/images.js';
 import { extractFontLinks } from './extract/fonts.js';
 import { extractVideos } from './extract/videos.js';
@@ -69,7 +70,7 @@ async function fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minIm
   }
   if (!response.ok) return null;
 
-  const plainHtml = await response.text();
+  const plainHtml = await readResponseHtml(response);
   const shouldTryPlaywright =
     forcePlaywright || isLikelyClientRendered(plainHtml, url, minImagesThreshold) || isLikelyLazyVideoPage(plainHtml, url);
   if (!shouldTryPlaywright) return plainHtml;
