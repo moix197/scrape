@@ -8,3 +8,7 @@
 # Section text: document order, full text content
 
 `extractSectionText` (`src/extract/structure.js`) walks text nodes in document order, including inline elements; only non-inline tags add a space boundary. Never build cheerio selectors from node tag names (`tagWithNthSuffix` filters siblings by `tagName`) because malformed markup yields invalid selectors that abort the crawl.
+
+# Only HTML responses are parsed as pages
+
+`readResponseHtml` returns null unless Content-Type is text/html or xhtml (or header missing and bytes don't look binary: NUL, %PDF, zip/png/gif/jpeg magic). Why: the windows-1252 fallback "decodes" any bytes, so a crawled PDF/image became 6MB of garbage in structure.json. `crawler.js` also skips links with binary extensions.

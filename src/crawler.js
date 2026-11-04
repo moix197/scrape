@@ -40,13 +40,19 @@ export function isLikelyLazyVideoPage(html, pageUrl) {
   return extractVideos(html, pageUrl).length === 0;
 }
 
+const BINARY_EXTENSION = /\.(pdf|jpe?g|png|gif|webp|svg|ico|zip|rar|7z|gz|docx?|xlsx?|pptx?|mp[34]|mov|avi|wmv|webm|exe|dmg)$/i;
+
+function hasBinaryExtension(url) {
+  return BINARY_EXTENSION.test(new URL(url).pathname);
+}
+
 function extractLinksFromPage(html, pageUrl, originUrl) {
   const $ = cheerio.load(html);
   const links = new Set();
 
   $('a[href]').each((_, el) => {
     const resolved = resolveUrl(pageUrl, $(el).attr('href'));
-    if (!resolved || !isSameOrigin(resolved, originUrl)) return;
+    if (!resolved || !isSameOrigin(resolved, originUrl) || hasBinaryExtension(resolved)) return;
     links.add(normalizeUrl(resolved));
   });
 
@@ -71,6 +77,7 @@ async function fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minIm
   if (!response.ok) return null;
 
   const plainHtml = await readResponseHtml(response);
+  if (plainHtml === null) return null;
   const shouldTryPlaywright =
     forcePlaywright || isLikelyClientRendered(plainHtml, url, minImagesThreshold) || isLikelyLazyVideoPage(plainHtml, url);
   if (!shouldTryPlaywright) return plainHtml;

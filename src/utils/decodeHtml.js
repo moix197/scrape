@@ -41,7 +41,23 @@ export function pickCharset(contentType, bytes) {
   return candidates.find((label) => decodesCleanly(label, bytes)) ?? 'windows-1252';
 }
 
+const HTML_CONTENT_TYPE = /^(text\/html|application\/xhtml\+xml)\b/i;
+const BINARY_MAGIC = ['%PDF', 'PK\x03\x04', 'GIF8', '\x89PNG', 'Rar!', '\x1f\x8b', '\xff\xd8\xff'];
+
+function looksBinary(bytes) {
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, SNIFF_BYTES));
+  return head.includes('\0') || BINARY_MAGIC.some((magic) => head.startsWith(magic));
+}
+
+// Trust a declared HTML type; when the header is missing, sniff the bytes instead.
+export function isHtmlPayload(contentType, bytes) {
+  if (looksBinary(bytes)) return false;
+  return contentType ? HTML_CONTENT_TYPE.test(contentType.trim()) : true;
+}
+
 export async function readResponseHtml(response) {
   const bytes = new Uint8Array(await response.arrayBuffer());
-  return new TextDecoder(pickCharset(response.headers.get('content-type'), bytes)).decode(bytes);
+  const contentType = response.headers.get('content-type');
+  if (!isHtmlPayload(contentType, bytes)) return null;
+  return new TextDecoder(pickCharset(contentType, bytes)).decode(bytes);
 }

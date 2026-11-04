@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pickCharset } from '../src/utils/decodeHtml.js';
+import { pickCharset, isHtmlPayload } from '../src/utils/decodeHtml.js';
 
 const bytes = (text) => new TextEncoder().encode(text);
 
@@ -25,4 +25,12 @@ test('pickCharset ignores a UTF-8 declaration when the bytes are really Latin-1'
   const latin1 = Uint8Array.from([...bytes('<meta charset="iso-8859-1">jard'), 0xed, ...bytes('n')]);
   assert.equal(pickCharset('text/html; charset=UTF-8', latin1), 'iso-8859-1');
   assert.equal(pickCharset('text/html; charset=UTF-8', Uint8Array.from([0x6a, 0xed])), 'windows-1252');
+});
+
+test('isHtmlPayload accepts html types, rejects other types and binary bytes', () => {
+  assert.equal(isHtmlPayload('text/html; charset=utf-8', bytes('<p>x</p>')), true);
+  assert.equal(isHtmlPayload('application/pdf', bytes('<p>x</p>')), false);
+  assert.equal(isHtmlPayload(null, bytes('%PDF-1.4')), false);
+  assert.equal(isHtmlPayload('text/html', Uint8Array.from([0x61, 0, 0x62])), false);
+  assert.equal(isHtmlPayload(null, bytes('<p>x</p>')), true);
 });
