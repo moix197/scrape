@@ -97,10 +97,16 @@ Every crawled page is also run through a DOM-heuristic layout analyzer
 `hero`, `gallery`, `about`, `contact`, `services`, `blog`, `team`, `faq`,
 `testimonials`, `footer`, generic `main`/`section`, or `uncategorized` for
 anything outside a detected landmark — using semantic tags plus common
-class/id keyword matches (e.g. `class="gallery"`, `id="hero"`). Each section
+class/id keyword matches (e.g. `class="gallery"`, `id="hero"`), matched as
+whole words of a class/id token (`footer1`, `site-footer`, `testimonials2` match;
+`card-footer`, `modal-header`, `newsletter` do not). Each section
 lists its images and videos in on-page order, its headings, its links
 (flagged `isSocial`/`platform` when they point at a known social platform),
-and its own body `text` (whitespace-normalized, script/style stripped).
+and its own body `text` (script/style stripped; one line per block, so `<br>`,
+`<p>`, `<li>`, `<div>`, `<td>` boundaries become line breaks, whitespace inside a line
+collapsed). An image laid out in a `<table>` gets an optional `caption`: the
+text of its own cell, or of the same column in the next row when the image's
+row holds only images.
 It also picks a best-guess site logo (from `<header>`/`<nav>`, scored by
 `logo` in alt/class/id, then by linking to the homepage) and rolls up a
 deduped site-wide social-links list.

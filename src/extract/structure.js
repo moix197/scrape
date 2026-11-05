@@ -46,9 +46,35 @@ function isUsableUrl(url) {
   return url !== null && !url.startsWith('data:');
 }
 
+// A keyword after one of these in the same class token names a part of a component, not a page
+// landmark: Bootstrap/Mobirise team cards carry "card-footer", modals "modal-header".
+const COMPONENT_PART_PREFIXES = new Set([
+  'card', 'modal', 'panel', 'widget', 'entry', 'post', 'article', 'comment', 'item', 'box', 'tile',
+  'dropdown', 'popup', 'cookie', 'author', 'table', 'form', 'accordion', 'slide', 'media',
+]);
+
+// Plurals ("testimonials", "contacts") and "aboutus"/"contactus" are the same landmark; anything
+// else glued on ("newsletter", "steam", "heroic") is a different word.
+const KEYWORD_SUFFIXES = ['', 's', 'us'];
+
+function wordMatchesKeyword(word, keyword) {
+  const bare = word.replace(/\d+$/, '');
+  return KEYWORD_SUFFIXES.some((suffix) => bare === keyword + suffix);
+}
+
+// Matches whole words of each class/id token (split on - and _, trailing digits dropped as in
+// Mobirise "footer1"), never substrings — "card-footer" is a team card's caption strip, not the site footer.
+function tokenMatchesKeyword(token, keyword) {
+  const words = token.split(/[-_]+/).filter(Boolean);
+  return words.some((word, index) => {
+    if (!wordMatchesKeyword(word, keyword)) return false;
+    return !words.slice(0, index).some((prefix) => COMPONENT_PART_PREFIXES.has(prefix.replace(/\d+$/, '')));
+  });
+}
+
 function classifyByKeyword($, el) {
-  const classAndId = `${$(el).attr('class') || ''} ${$(el).attr('id') || ''}`.toLowerCase();
-  const match = KEYWORD_TYPE_MAP.find(([keyword]) => classAndId.includes(keyword));
+  const tokens = `${$(el).attr('class') || ''} ${$(el).attr('id') || ''}`.toLowerCase().split(/\s+/).filter(Boolean);
+  const match = KEYWORD_TYPE_MAP.find(([keyword]) => tokens.some((token) => tokenMatchesKeyword(token, keyword)));
   return match ? match[1] : null;
 }
 
@@ -174,6 +200,62 @@ function extractWowImages($, scopeEl, excludeInside, images) {
     });
 }
 
+// A whole layout cell (old table-built sites put the page in one) is not a caption.
+const MAX_CAPTION_CHARS = 300;
+
+function cellImageCount($, cellEl) {
+  return $(cellEl).find('img, wow-image').length;
+}
+
+function cellCaptionText($, cellEl) {
+  if ($(cellEl).find('table').length) return '';
+  const text = extractSectionText($, cellEl, []);
+  return text.length <= MAX_CAPTION_CHARS ? text : '';
+}
+
+function cellColumnStart($, cellEl) {
+  return $(cellEl)
+    .prevAll('td, th')
+    .toArray()
+    .reduce((sum, cell) => sum + (Number($(cell).attr('colspan')) || 1), 0);
+}
+
+function cellAtColumn($, rowEl, column) {
+  let start = 0;
+  return $(rowEl)
+    .children('td, th')
+    .toArray()
+    .find((cell) => {
+      const found = start === column;
+      start += Number($(cell).attr('colspan')) || 1;
+      return found;
+    });
+}
+
+// Only a row of images alone (every non-empty cell an image, no text) takes its captions from
+// the row below — a layout row mixing a spacer gif with page copy would "caption" it with the footer.
+function isImageOnlyRow($, rowEl) {
+  return $(rowEl)
+    .children('td, th')
+    .toArray()
+    .every((cell) => !extractSectionText($, cell, []) && cellImageCount($, cell) <= 1);
+}
+
+// Galleries and product grids built as <table>: the caption sits in the image's own cell
+// ("<img><br>Vista al lago Moreno") or in the same column of the next row (image row, caption row).
+function findTableCellCaption($, imgEl) {
+  const cell = $(imgEl).closest('td, th').get(0);
+  if (!cell || cellImageCount($, cell) !== 1) return '';
+  const ownText = cellCaptionText($, cell);
+  if (ownText) return ownText;
+  const row = $(cell).parent('tr').get(0);
+  if (!row || !isImageOnlyRow($, row) || $(cell).attr('rowspan')) return '';
+  const nextRow = $(row).next('tr').get(0);
+  const below = nextRow ? cellAtColumn($, nextRow, cellColumnStart($, cell)) : null;
+  if (!below || cellImageCount($, below) > 0) return '';
+  return cellCaptionText($, below);
+}
+
 function extractSectionImages($, scopeEl, pageUrl, excludeInside) {
   const images = [];
   $(scopeEl)
@@ -183,7 +265,8 @@ function extractSectionImages($, scopeEl, pageUrl, excludeInside) {
       if (isExcluded($, el, excludeInside)) return;
       const url = resolveImageUrl($, el, pageUrl);
       if (!url) return;
-      images.push({ url, alt: $(el).attr('alt') || '', order: images.length });
+      const caption = findTableCellCaption($, el);
+      images.push({ url, alt: $(el).attr('alt') || '', order: images.length, ...(caption ? { caption } : {}) });
     });
   extractWowImages($, scopeEl, excludeInside, images);
   return images;
@@ -258,24 +341,33 @@ const INLINE_TAGS = new Set([
 ]);
 
 // Text in document order, including text inside inline elements (<a>, <strong>, ...).
-// Non-inline elements add a space boundary so adjacent blocks don't glue together.
+// Non-inline elements (<br>, <p>, <li>, <div>, <td>, ...) add a line break so a CV or a
+// multi-line caption keeps its lines; newlines in the HTML source are just whitespace.
 function collectTextInOrder($, node, excludeInside, out) {
   if (node.type === 'text') {
-    out.push(node.data);
+    out.push(node.data.replace(/\s+/g, ' '));
     return;
   }
   if (node.type !== 'tag' || NON_TEXT_TAGS.has(node.tagName?.toLowerCase())) return;
   if (isExcluded($, node, excludeInside)) return;
   const isBlock = !INLINE_TAGS.has(node.tagName.toLowerCase());
-  if (isBlock) out.push(' ');
+  if (isBlock) out.push('\n');
   for (const child of node.children ?? []) collectTextInOrder($, child, excludeInside, out);
-  if (isBlock) out.push(' ');
+  if (isBlock) out.push('\n');
+}
+
+function normalizeLines(text) {
+  return text
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 function extractSectionText($, scopeEl, excludeInside) {
   const out = [];
   collectTextInOrder($, scopeEl, excludeInside, out);
-  return out.join('').replace(/\s+/g, ' ').trim();
+  return normalizeLines(out.join(''));
 }
 
 // Flattens one top-level list's items: a nested ul/ol inside an <li> is not its own entry —

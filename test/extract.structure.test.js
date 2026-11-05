@@ -183,14 +183,14 @@ test('extractPageStructure treats iframe src="about:blank" as a placeholder and 
 test('extractPageStructure gives each section its own scoped body text', () => {
   const structure = extractPageStructure(html, pageUrl);
   const about = findSection(structure, 'about');
-  assert.equal(about.text, 'About Us We build things. Fast turnaround Fair pricing No hidden fees Friendly team');
+  assert.equal(about.text, 'About Us\nWe build things.\nFast turnaround\nFair pricing\nNo hidden fees\nFriendly team');
   assert.ok(about.text.includes('Fast turnaround'));
-  assert.equal(findSection(structure, 'footer').text, 'Twitter X YouTube © 2026 Acme Inc. 555-010-2020');
+  assert.equal(findSection(structure, 'footer').text, 'Twitter X YouTube\n© 2026 Acme Inc.\n555-010-2020');
 });
 
 test('extractPageStructure includes link text in a section\'s body text', () => {
   const structure = extractPageStructure(html, pageUrl);
-  assert.equal(findSection(structure, 'contact').text, 'Contact Us Facebook Instagram Email us Call us Email');
+  assert.equal(findSection(structure, 'contact').text, 'Contact Us\nFacebook Instagram Email us Call us Email');
 });
 
 test('extractPageStructure captures deduped tel/mailto contacts for a section, in document order', () => {
@@ -306,7 +306,7 @@ test('extractPageStructure claims a nested <section> inside a wrapping <main> in
   assert.ok(blockA);
   assert.equal(blockA.selectorPath, 'body > main > section:nth-of-type(1)');
   assert.equal(blockA.label, 'Special Offer');
-  assert.equal(blockA.text, 'Special Offer Save today.');
+  assert.equal(blockA.text, 'Special Offer\nSave today.');
 });
 
 test('extractPageStructure dissolves a wrapper section that itself contains an already-claimed landmark, instead of double-counting it', () => {
@@ -379,4 +379,32 @@ test('extractPageStructure omits a list whose items have no text (e.g. icon-only
   const structure = extractPageStructure(html, pageUrl);
   const footer = findSection(structure, 'footer');
   assert.deepEqual(footer.listItems, []);
+});
+
+test('extractPageStructure keeps line breaks between blocks and <br>s in section text', () => {
+  const page = '<body><section><h2>Director</h2><p>Od. Ana Pérez<br>Odontóloga   U.N.C.\n  Matrícula 7012</p><ul><li>Docente</li><li>Máster</li></ul></section></body>';
+  const section = extractPageStructure(page, pageUrl).sections[0];
+  assert.equal(section.text, 'Director\nOd. Ana Pérez\nOdontóloga U.N.C. Matrícula 7012\nDocente\nMáster');
+});
+
+test('extractPageStructure does not classify a "card-footer" (or "newsletter") class as a landmark', () => {
+  const page = `<body><section class="testimonials2"><div class="card"><p>Od. Ana</p>
+    <div class="mbr-author card-footer"><img src="/ana.jpg"></div></div></section>
+    <div class="newsletter"><p>Subscribe</p></div><div class="footer1"><p>© Acme</p></div></body>`;
+  const structure = extractPageStructure(page, pageUrl);
+  assert.deepEqual(structure.sections.map((s) => s.type), ['testimonials', 'footer', 'uncategorized']);
+  assert.equal(structure.sections[0].images[0].url, 'https://example.com/ana.jpg');
+});
+
+test('extractPageStructure pairs table-cell images with a caption in the same cell or the cell below', () => {
+  const page = `<body><table>
+    <tr><td><img src="/a.jpg"><br>Vista al lago</td></tr></table>
+    <table><tr><td></td><td><img src="/b.jpg" alt="click"></td></tr>
+    <tr><td>x</td><td><span>Puñales</span><br>Variedad de encabados</td></tr>
+  </table><table><tr><td><img src="/spacer.gif"></td><td>Long page copy</td></tr><tr><td>Footer</td></tr></table></body>`;
+  const images = extractPageStructure(page, pageUrl).sections.flatMap((s) => s.images);
+  assert.equal(images[0].caption, 'Vista al lago');
+  assert.equal(images[1].caption, 'Puñales\nVariedad de encabados');
+  assert.equal(images[1].alt, 'click');
+  assert.equal('caption' in images[2], false);
 });
