@@ -34,3 +34,10 @@ test('isHtmlPayload accepts html types, rejects other types and binary bytes', (
   assert.equal(isHtmlPayload('text/html', Uint8Array.from([0x61, 0, 0x62])), false);
   assert.equal(isHtmlPayload(null, bytes('<p>x</p>')), true);
 });
+
+test('isHtmlPayload sniffs bytes when Content-Type has no media type', () => {
+  assert.equal(isHtmlPayload('charset=utf-8', bytes('<p>x</p>')), true);
+  assert.equal(isHtmlPayload('charset=utf-8', bytes('%PDF-1.4')), false);
+  assert.equal(isHtmlPayload('TEXT/HTML ; charset=utf-8', bytes('<p>x</p>')), true);
+  assert.equal(isHtmlPayload('text/plain', bytes('<p>x</p>')), false);
+});

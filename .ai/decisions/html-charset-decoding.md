@@ -11,7 +11,7 @@
 
 # Only HTML responses are parsed as pages
 
-`readResponseHtml` returns null unless Content-Type is text/html or xhtml (or header missing and bytes don't look binary: NUL, %PDF, zip/png/gif/jpeg magic). Why: the windows-1252 fallback "decodes" any bytes, so a crawled PDF/image became 6MB of garbage in structure.json. `crawler.js` also skips links with binary extensions.
+`readResponseHtml` returns null unless Content-Type is text/html or xhtml (or header missing / carrying no `type/subtype`, e.g. `charset=utf-8`, and bytes don't look binary: NUL, %PDF, zip/png/gif/jpeg magic). Why: the windows-1252 fallback "decodes" any bytes, so a crawled PDF/image became 6MB of garbage in structure.json. `crawler.js` also skips links with binary extensions. A media-type-less header (rosarioagroindustrial productos.php) is sniffed, not rejected.
 
 # Landmark keywords match whole class/id words
 

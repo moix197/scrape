@@ -41,7 +41,8 @@ export function pickCharset(contentType, bytes) {
   return candidates.find((label) => decodesCleanly(label, bytes)) ?? 'windows-1252';
 }
 
-const HTML_CONTENT_TYPE = /^(text\/html|application\/xhtml\+xml)\b/i;
+const HTML_MEDIA_TYPES = new Set(['text/html', 'application/xhtml+xml']);
+const MEDIA_TYPE_PATTERN = /^[\w.+-]+\/[\w.+-]+$/;
 const BINARY_MAGIC = ['%PDF', 'PK\x03\x04', 'GIF8', '\x89PNG', 'Rar!', '\x1f\x8b', '\xff\xd8\xff'];
 
 function looksBinary(bytes) {
@@ -49,10 +50,18 @@ function looksBinary(bytes) {
   return head.includes('\0') || BINARY_MAGIC.some((magic) => head.startsWith(magic));
 }
 
-// Trust a declared HTML type; when the header is missing, sniff the bytes instead.
+// Old PHP sites send e.g. "Content-Type: charset=utf-8" with no media type; treat that like a
+// missing header rather than a non-HTML one.
+function declaredMediaType(contentType) {
+  const mediaType = (contentType ?? '').split(';')[0].trim().toLowerCase();
+  return MEDIA_TYPE_PATTERN.test(mediaType) ? mediaType : null;
+}
+
+// Trust a declared media type; when the header has none, sniff the bytes instead.
 export function isHtmlPayload(contentType, bytes) {
   if (looksBinary(bytes)) return false;
-  return contentType ? HTML_CONTENT_TYPE.test(contentType.trim()) : true;
+  const mediaType = declaredMediaType(contentType);
+  return mediaType ? HTML_MEDIA_TYPES.has(mediaType) : true;
 }
 
 export async function readResponseHtml(response) {
