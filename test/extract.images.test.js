@@ -67,3 +67,9 @@ test('extractImages resolves a Wix <wow-image>\'s real url and intrinsic size fr
   assert.equal(wix.width, 5760);
   assert.equal(wix.height, 3840);
 });
+
+test('extractImages finds image string literals in inline scripts, in order, resolved against the page', () => {
+  const html = `<script>var g = new fadeSlideShow({ wrapperid: "show", imagearray: [["imagenes/a.jpg"], ['imagenes/b.png'] ] })</script>`;
+  const urls = extractImages(html, 'http://example.com/bajos.html').map((i) => i.url);
+  assert.deepEqual(urls, ['http://example.com/imagenes/a.jpg', 'http://example.com/imagenes/b.png']);
+});

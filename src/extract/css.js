@@ -35,6 +35,28 @@ export function extractBackgroundImagesFromCss(cssText, cssBaseUrl) {
   return [...urls];
 }
 
+const LOGO_SELECTOR = /^[a-z0-9]*(?:#|\.)logo(?::[\w-]+)*$/i;
+
+function lastCompoundSelector(selector) {
+  return selector.trim().split(/\s*[\s>+~]\s*/).pop();
+}
+
+// The site logo is often a CSS background on `#logo` / `.logo` (an empty element holding a home
+// link), invisible to <img> detection. Only a rule whose own subject is the logo element counts,
+// not a descendant like `#logo a`; decorative backgrounds elsewhere are left alone.
+export function extractLogoBackgroundFromCss(cssText, cssBaseUrl) {
+  const uncommented = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const ruleRegex = /([^{}]+)\{([^}]*)\}/g;
+  let rule;
+  while ((rule = ruleRegex.exec(uncommented))) {
+    const selector = rule[1].split(',').map(lastCompoundSelector).find((s) => LOGO_SELECTOR.test(s));
+    if (!selector) continue;
+    const [url] = extractBackgroundImagesFromCss(rule[2], cssBaseUrl);
+    if (url) return { url, selector: selector.replace(/:[\w-]+$/, '') };
+  }
+  return null;
+}
+
 function parseFontFamily(block) {
   const familyMatch = /font-family\s*:\s*([^;]+);?/i.exec(block);
   if (!familyMatch) return null;

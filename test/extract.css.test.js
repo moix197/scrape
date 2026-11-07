@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   extractLinkedStylesheetUrls,
   extractBackgroundImagesFromCss,
+  extractLogoBackgroundFromCss,
   extractFontsFromCss,
 } from '../src/extract/css.js';
 
@@ -53,4 +54,15 @@ test('extractFontsFromCss handles missing format', () => {
   assert.ok(ttf);
   assert.equal(ttf.format, null);
   assert.equal(ttf.fontFamily, 'Brand Serif');
+});
+
+test('extractLogoBackgroundFromCss picks the #logo background, ignoring comments and decorative backgrounds', () => {
+  const css = `body { background: url(fondo.gif) }
+    #logo { width: 194px; background:url('imagenes/logo.gif') top left no-repeat; }
+    #logo a:link { /* background:url('x.gif') */ display:block }`;
+  assert.deepEqual(extractLogoBackgroundFromCss(css, 'http://example.com/estilos.css'), {
+    url: 'http://example.com/imagenes/logo.gif',
+    selector: '#logo',
+  });
+  assert.equal(extractLogoBackgroundFromCss('#footer { background:url(pie.gif) }', 'http://example.com/a.css'), null);
 });

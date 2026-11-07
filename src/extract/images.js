@@ -89,7 +89,37 @@ function extractPictureSourceImages($, pageUrl) {
   return images;
 }
 
+const SCRIPT_IMAGE_LITERAL = /(["'])([^"'\s<>]+?\.(?:jpe?g|png|gif|webp|svg|avif)(?:\?[^"'\s<>]*)?)\1/gi;
+const SCRIPT_STRING_LITERAL = /(["'])([^"'\s<>]+)\1/g;
+
+// Slideshow plugins (fadeSlideShow, etc.) list their images only in an inline script's config
+// (`imagearray: [["a.jpg"], ...]`). Any image-looking string literal counts, in source order; all
+// string literals (e.g. `wrapperid: "fadeshow1"`) are returned as `literals` so the caller can
+// find the element the gallery renders into.
+export function extractInlineScriptGalleries($, pageUrl) {
+  const galleries = [];
+  $('script:not([src])').each((_, el) => {
+    const code = $(el).html() || '';
+    const urls = [...new Set([...code.matchAll(SCRIPT_IMAGE_LITERAL)].map((m) => resolveUrl(pageUrl, m[2])).filter(isUsableUrl))];
+    if (urls.length === 0) return;
+    const literals = [...code.matchAll(SCRIPT_STRING_LITERAL)].map((m) => m[2]);
+    galleries.push({ urls, literals });
+  });
+  return galleries;
+}
+
+function extractInlineScriptImages($, pageUrl) {
+  return extractInlineScriptGalleries($, pageUrl).flatMap(({ urls }) =>
+    urls.map((url) => ({ url, alt: '', source: 'inline-script', width: null, height: null })),
+  );
+}
+
 export function extractImages(html, pageUrl) {
   const $ = cheerio.load(html);
-  return [...extractImgTagImages($, pageUrl), ...extractPictureSourceImages($, pageUrl), ...extractWowImageImages($, pageUrl)];
+  return [
+    ...extractImgTagImages($, pageUrl),
+    ...extractPictureSourceImages($, pageUrl),
+    ...extractWowImageImages($, pageUrl),
+    ...extractInlineScriptImages($, pageUrl),
+  ];
 }

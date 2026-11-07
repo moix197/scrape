@@ -408,3 +408,16 @@ test('extractPageStructure pairs table-cell images with a caption in the same ce
   assert.equal(images[1].alt, 'click');
   assert.equal('caption' in images[2], false);
 });
+
+test('extractPageStructure makes each tab panel its own section labelled from the tab id, with script gallery images attached', () => {
+  const tabsHtml = `<body><div id="show"></div>
+    <ul class="idTabs"><li id="electricos"><a href="#t1"></a></li><li id="acusticos"><a href="#t2">Acústicos</a></li></ul>
+    <div id="t1">Texto uno</div><div id="t2">Texto dos. Tel 54 261 5595620</div>
+    <script>new fadeSlideShow({wrapperid:"show",imagearray:[["i/a.jpg"],["i/b.jpg"]]})</script></body>`;
+  const structure = extractPageStructure(tabsHtml, 'http://example.com/p.html');
+  const panels = structure.sections.filter((s) => ['Electricos', 'Acústicos'].includes(s.label));
+  assert.deepEqual(panels.map((s) => s.text.split('.')[0]), ['Texto uno', 'Texto dos']);
+  assert.deepEqual(panels[1].contacts.map((c) => c.value), ['542615595620']);
+  const gallery = structure.sections.find((s) => s.images.length === 2);
+  assert.deepEqual(gallery.images.map((i) => i.url), ['http://example.com/i/a.jpg', 'http://example.com/i/b.jpg']);
+});

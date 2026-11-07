@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { resolveUrl } from '../utils/urls.js';
 import { resolveWowImage } from './wixImage.js';
+import { extractInlineScriptGalleries } from './images.js';
 
 const KEYWORD_TYPE_MAP = [
   ['gallery', 'gallery'],
@@ -155,11 +156,53 @@ function claimGenericLandmarks($, allEls, priorityClaimedEls) {
   return claimed;
 }
 
+function humanizeId(id) {
+  const words = id.replace(/[-_]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function findElementById($, id) {
+  return $('[id]').toArray().find((el) => $(el).attr('id') === id) ?? null;
+}
+
+// Tab sets (jQuery idTabs, etc.): a list of in-page links whose targets are sibling panels. Tab
+// links are often image-only, so the label falls back to the <li>/<a> id ("electricos"), then the panel id.
+function tabPanelsOfList($, listEl) {
+  const tabs = $(listEl)
+    .find('li')
+    .toArray()
+    .map((li) => ({ li, link: $(li).find('a[href^="#"]').first() }))
+    .filter(({ link }) => link.length && link.attr('href').length > 1)
+    .map(({ li, link }) => ({ panel: findElementById($, link.attr('href').slice(1)), li, link }))
+    .filter(({ panel }) => panel && !/^h[1-6]$/i.test(panel.tagName));
+  const sameParent = tabs.length > 1 && tabs.every(({ panel }) => panel.parent === tabs[0].panel.parent);
+  if (!sameParent) return [];
+  return tabs.map(({ panel, li, link }) => ({
+    el: panel,
+    type: 'uncategorized',
+    label: link.text().trim() || humanizeId($(li).attr('id') || link.attr('id') || $(panel).attr('id')),
+  }));
+}
+
+function claimTabPanels($, claimedEls) {
+  const claimed = [];
+  $('ul, ol').each((_, listEl) => {
+    for (const panel of tabPanelsOfList($, listEl)) {
+      const taken = [...claimedEls, ...claimed.map((c) => c.el)];
+      if (isDescendantOfClaimed($, panel.el, taken) || containsAnyClaimed($, panel.el, taken) || taken.includes(panel.el)) continue;
+      claimed.push(panel);
+    }
+  });
+  return claimed;
+}
+
 function claimLandmarks($) {
   const allEls = $('body *').toArray();
   const { claimed: priorityClaimed, claimedEls: priorityClaimedEls } = claimPriorityLandmarks($, allEls);
   const genericClaimed = claimGenericLandmarks($, allEls, priorityClaimedEls);
-  return sortByDocumentOrder($, allEls, [...priorityClaimed, ...genericClaimed]);
+  const landmarks = [...priorityClaimed, ...genericClaimed];
+  const tabPanels = claimTabPanels($, landmarks.map((landmark) => landmark.el));
+  return sortByDocumentOrder($, allEls, [...landmarks, ...tabPanels]);
 }
 
 function sortByDocumentOrder($, allEls, landmarks) {
@@ -480,6 +523,22 @@ function extractSectionContacts($, scopeEl, excludeInside) {
   return [...contacts.values()];
 }
 
+const TEXT_PHONE = /\b(?:tel|tel[eé]fono|cel|celular|whatsapp|fono|phone)\b\.?\s*:?\s*(\+?\d[\d\s().-]{5,}\d)/gi;
+const TEXT_EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+
+// Old sites print "Tel 54 261 5595620" / an address as plain text with no tel:/mailto: link.
+function extractTextContacts(text) {
+  const phones = [...text.matchAll(TEXT_PHONE)].map((m) => ({ type: 'tel', value: normalizeTelValue(`tel:${m[1]}`), label: m[0].trim() }));
+  const emails = [...text.matchAll(TEXT_EMAIL)].map((m) => ({ type: 'mailto', value: m[0].toLowerCase(), label: m[0] }));
+  return [...phones, ...emails];
+}
+
+function mergeContacts(linkContacts, textContacts) {
+  const seen = new Set(linkContacts.map((c) => `${c.type}:${c.value}`));
+  const extra = textContacts.filter((c) => !seen.has(`${c.type}:${c.value}`) && seen.add(`${c.type}:${c.value}`));
+  return [...linkContacts, ...extra];
+}
+
 // A dropdown/submenu toggle is often an <a> with no real destination (`href="#"`,
 // `href="javascript:void(0)"`, or empty) — same idea as `isPlaceholderIframeSrc` for iframes:
 // a non-empty attribute that still means "nothing real here", so it must not be treated as a
@@ -667,13 +726,14 @@ function extractSectionForm($, sectionEl) {
 
 function extractSectionContent($, scopeEl, pageUrl, { excludeInside = [] } = {}) {
   const excludeAll = [...excludeInside, ...collectFormEls($, scopeEl)];
+  const text = extractSectionText($, scopeEl, excludeAll);
   return {
     images: extractSectionImages($, scopeEl, pageUrl, excludeAll),
     videos: extractSectionVideos($, scopeEl, pageUrl, excludeAll),
     headings: extractSectionHeadings($, scopeEl, excludeAll),
     links: extractSectionLinks($, scopeEl, pageUrl, excludeAll),
-    contacts: extractSectionContacts($, scopeEl, excludeAll),
-    text: extractSectionText($, scopeEl, excludeAll),
+    contacts: mergeContacts(extractSectionContacts($, scopeEl, excludeAll), extractTextContacts(text)),
+    text,
     listItems: extractSectionListItems($, scopeEl, excludeAll),
     form: extractSectionForm($, scopeEl),
   };
@@ -693,14 +753,14 @@ function buildSelectorPath($, el) {
   return relevant.map((node) => tagWithNthSuffix($, node)).join(' > ');
 }
 
-function buildSection($, { el, type }, pageUrl, order, excludeInside) {
+function buildSection($, { el, type, label }, pageUrl, order, excludeInside) {
   const content = extractSectionContent($, el, pageUrl, { excludeInside });
   const firstHeading = content.headings[0];
   const navFields = type === 'nav' ? { navTree: buildNavTree($, el, pageUrl, excludeInside) } : {};
   const cardFields = type === 'cards' ? { cards: buildCards($, el, pageUrl, excludeInside) } : {};
   return {
     type,
-    label: firstHeading ? firstHeading.text : type,
+    label: label ?? (firstHeading ? firstHeading.text : type),
     order,
     selectorPath: buildSelectorPath($, el),
     ...content,
@@ -815,6 +875,32 @@ function collectNavTree(sections) {
   return sections.filter((section) => section.type === 'nav').flatMap((section) => section.navTree ?? []);
 }
 
+function sectionContainingPath(sections, path) {
+  return sections
+    .filter((section) => path === section.selectorPath || path.startsWith(`${section.selectorPath} > `))
+    .sort((a, b) => b.selectorPath.length - a.selectorPath.length)[0];
+}
+
+// A script-driven slideshow renders into an element named by a string literal in the same script
+// (`wrapperid: "fadeshow1"`). Its images join the section holding that element, after the markup
+// images; with no such section (the wrapper is empty markup) they become their own section.
+function attachScriptGalleries($, sections, pageUrl) {
+  for (const { urls, literals } of extractInlineScriptGalleries($, pageUrl)) {
+    const wrapper = literals.map((id) => findElementById($, id)).find(Boolean);
+    const wrapperPath = wrapper ? buildSelectorPath($, wrapper) : null;
+    let target = wrapperPath ? sectionContainingPath(sections, wrapperPath) : null;
+    if (!target) {
+      target = { ...emptyContent(), type: 'uncategorized', label: 'gallery', order: sections.length, selectorPath: wrapperPath ?? 'body' };
+      sections.push(target);
+    }
+    for (const url of urls) target.images.push({ url, alt: '', order: target.images.length });
+  }
+}
+
+function emptyContent() {
+  return { images: [], videos: [], headings: [], links: [], contacts: [], text: '', listItems: [], form: null };
+}
+
 export function extractPageStructure(html, pageUrl) {
   const $ = cheerio.load(html);
   const landmarks = claimLandmarks($);
@@ -826,6 +912,8 @@ export function extractPageStructure(html, pageUrl) {
     const section = buildUncategorizedSection($, root, pageUrl, sections.length);
     if (section) sections.push(section);
   });
+
+  attachScriptGalleries($, sections, pageUrl);
 
   return {
     sections,

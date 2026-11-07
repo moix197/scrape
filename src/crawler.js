@@ -12,6 +12,7 @@ import { extractPageMeta, extractSiteMeta, extractVisibleText } from './extract/
 import {
   extractLinkedStylesheetUrls,
   extractBackgroundImagesFromCss,
+  extractLogoBackgroundFromCss,
   extractFontsFromCss,
 } from './extract/css.js';
 import { extractColorRules, extractInlineStyleBlocks } from './extract/colors.js';
@@ -112,6 +113,7 @@ async function collectStylesheetExtras(html, pageUrl, deps) {
   const images = [];
   const fonts = [];
   const colorRules = [];
+  const logoCandidates = [];
 
   for (const cssUrl of stylesheetUrls) {
     const cssText = await fetchStylesheetText(cssUrl, deps);
@@ -119,11 +121,22 @@ async function collectStylesheetExtras(html, pageUrl, deps) {
     for (const url of extractBackgroundImagesFromCss(cssText, cssUrl)) {
       images.push({ url, alt: '', source: 'css-background', width: null, height: null });
     }
+    const cssLogo = extractLogoBackgroundFromCss(cssText, cssUrl);
+    if (cssLogo) logoCandidates.push(cssLogo);
     fonts.push(...extractFontsFromCss(cssText, cssUrl));
     colorRules.push(...extractColorRules(cssText));
   }
 
-  return { images, fonts, colorRules, stylesheetUrls };
+  return { images, fonts, colorRules, stylesheetUrls, logoCandidates };
+}
+
+// A CSS-background logo only counts when the page actually has that element; it then beats the
+// <img> guess, which falls back to any header image when nothing is marked as a logo.
+function pickCssLogo(html, logoCandidates) {
+  const $ = cheerio.load(html);
+  const match = logoCandidates.find(({ selector }) => $(selector).length > 0);
+  if (!match) return null;
+  return { url: match.url, alt: $(match.selector).find('a[title]').first().attr('title') || '' };
 }
 
 async function processPage(url, deps) {
@@ -140,6 +153,8 @@ async function processPage(url, deps) {
 
   const cssExtras = await collectStylesheetExtras(html, url, { userAgent, rateLimiter, onFetchLogged, originUrl, robotsRules });
   const cssImages = cssExtras.images.map((img) => ({ ...img, sourcePageUrl: url }));
+  const cssLogo = pickCssLogo(html, cssExtras.logoCandidates);
+  if (cssLogo) structure.logo = cssLogo;
   const inlineColorRules = extractColorRules(extractInlineStyleBlocks(html));
 
   return {
