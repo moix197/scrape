@@ -25,6 +25,8 @@ export function getDomainFolderName(url) {
 export function normalizeUrl(url) {
   const parsed = new URL(url);
   parsed.hash = '';
+  // "/index.html" and "/foo/index.html" are the same page as "/" and "/foo/".
+  parsed.pathname = parsed.pathname.replace(/\/index\.(?:html?|php)$/i, '/');
   if (parsed.pathname !== '/' && parsed.pathname.endsWith('/')) {
     parsed.pathname = parsed.pathname.replace(/\/+$/, '');
   }

@@ -56,7 +56,12 @@ Written to `<out>/<domain>/`:
 ```
 images/            downloaded, deduped, size-filtered images
 screenshots/       full-page PNGs of home + every nav page, desktop (1440) and mobile (390), plus index.json
-manifest.json      site url, scraped-at timestamp, pages, images (with local filenames)
+docs/              linked documents (any origin; `external` flag) (pdf, doc(x), xls(x)), 25 MB cap each
+manifest.json      site url, scraped-at timestamp, crawl {capped, maxPages, pagesSkipped}
+                   (capped:true = --max-pages hit, pages left uncrawled; also warned on stderr),
+                   pages, images (with local filenames), documents [{url, file, text, page,
+                   external, size, status}] (file null when the original 404s/errors/too large; status
+                   ok | http-<code> | too-large | error). structure.json carries the same documents[]
 fonts.json         font links + @font-face entries discovered in linked stylesheets
 videos.json        video URLs discovered — <video>/<source>, YouTube/Vimeo/Wistia embeds, direct video-file links
 structure.json     per-page layout breakdown for rebuilding: sections (header/nav/hero/

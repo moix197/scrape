@@ -7,6 +7,7 @@ import { sha1Hex } from './utils/hash.js';
 import { downloadImage } from './images/download.js';
 import { createContentDedupe, passesSizeFilter } from './images/dedup.js';
 import { extractDominantColors } from './images/palette.js';
+import { downloadDocuments } from './documents/download.js';
 import { createManifestBuilder, writeJson, buildManifestImageMap, resolveStructureImageUrls } from './images/manifest.js';
 import { scoreSiteColors } from './extract/colors.js';
 import { createBrowserSession } from './render/playwrightFallback.js';
@@ -228,6 +229,7 @@ async function crawlAndBuildManifest(cliOptions, manifest, fetchLog, browserSess
   for (const page of crawlResult.pages) {
     manifest.addPage({ url: page.url, title: page.title, description: page.description });
   }
+  manifest.setCrawl(crawlResult.crawl);
 
   return crawlResult;
 }
@@ -437,6 +439,11 @@ export async function runScrape(cliOptions) {
     const manifestByUrl = buildManifestImageMap(manifest.build().images);
     const resolvedStructureOutput = resolveStructureImageUrls(structureOutput, manifestByUrl);
 
+    console.log(`Downloading ${crawlResult.documents.length} linked documents...`);
+    const documents = await downloadDocuments(crawlResult.documents, { outputBase, userAgent: USER_AGENT });
+    manifest.setDocuments(documents);
+    resolvedStructureOutput.documents = documents;
+
     const screenshotIndex = await renderSitePages(cliOptions, browserSession, structureOutput, crawlResult, outputBase, fetchLog);
     const screenshotsCaptured = screenshotIndex.filter((entry) => !entry.error).length;
     console.log(`Screenshots: ${screenshotsCaptured} captured, ${screenshotIndex.length - screenshotsCaptured} failed`);
@@ -446,7 +453,8 @@ export async function runScrape(cliOptions) {
     console.log(
       `\nDone. Pages crawled: ${crawlResult.pages.length}. Images saved: ${savedImages.length}` +
         (reusedFromCache ? ` (${reusedFromCache} reused from a prior scrape, no re-download)` : '') +
-        `. Videos found: ${crawlResult.videos.length}.`,
+        `. Videos found: ${crawlResult.videos.length}. Documents: ${documents.filter((d) => d.file).length}/${documents.length} downloaded.` +
+        (crawlResult.crawl.capped ? ` WARNING: crawl capped, ${crawlResult.crawl.pagesSkipped} page(s) skipped.` : ''),
     );
     console.log(`Output written to: ${outputBase}`);
 

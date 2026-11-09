@@ -44,3 +44,8 @@ test('normalizeUrl leaves query strings intact', () => {
   assert.equal(normalizeUrl('https://example.com/page?a=1'), 'https://example.com/page?a=1');
   assert.equal(normalizeUrl('https://example.com/page/?a=1'), 'https://example.com/page?a=1');
 });
+
+test('normalizeUrl folds index.html into its directory URL', () => {
+  assert.equal(normalizeUrl('https://example.com/index.html'), 'https://example.com/');
+  assert.equal(normalizeUrl('https://example.com/foo/index.html'), normalizeUrl('https://example.com/foo/'));
+});

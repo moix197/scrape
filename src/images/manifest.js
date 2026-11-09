@@ -4,8 +4,16 @@ import path from 'node:path';
 export function createManifestBuilder(siteUrl) {
   const pages = [];
   const images = [];
+  let documents = [];
+  let crawl = null;
 
   return {
+    setDocuments(rows) {
+      documents = rows;
+    },
+    setCrawl(info) {
+      crawl = info;
+    },
     addImage({
       sourcePageUrl,
       imageUrl,
@@ -27,8 +35,10 @@ export function createManifestBuilder(siteUrl) {
       return {
         siteUrl,
         scrapedAt: new Date().toISOString(),
+        crawl,
         pages,
         images,
+        documents,
       };
     },
   };

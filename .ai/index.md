@@ -10,6 +10,7 @@ anywhere real.
 | Module / package | Responsibility (one line) | Path | Decisions / patterns |
 | ---------------- | ------------------------- | ---- | -------------------- |
 | `extract/structure` | page sections + per-section `contacts` (links + "Tel ..."/email in text) / `listItems` / `form`, multi-line `text`, table-cell image `caption`, tab panels as labelled sections, inline-script slideshow images | `src/extract/structure.js` | [html-charset-decoding](decisions/html-charset-decoding.md) (section text, keywords, captions) |
+| `crawler` + `documents/download` | page crawl (`normalizeUrl` folds `/index.html` into `/`), cap flag `crawl{capped,pagesSkipped}`, pdf/doc/xls link capture (any origin, `external` flag) + download to `docs/` (`documents[]` in manifest + structure.json), lightbox `<a href=img>` images (`source: linked-image`) | `src/crawler.js`, `src/documents/download.js`, `src/utils/urls.js` | |
 | `extract/css` + `extract/images` | CSS backgrounds, fonts, `#logo`/`.logo` CSS-background logo (overrides the `<img>` guess); inline-script image literals (slideshow `imagearray`) | `src/extract/css.js`, `src/extract/images.js` | |
 | `extract/copy` | page meta (title, description, canonical, og, jsonLd) + site meta (lang, favicon) | `src/extract/copy.js` | |
 | `utils/decodeHtml` | byte-level HTML charset detection + decode | `src/utils/decodeHtml.js` | [html-charset-decoding](decisions/html-charset-decoding.md) |
