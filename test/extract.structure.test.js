@@ -421,3 +421,20 @@ test('extractPageStructure makes each tab panel its own section labelled from th
   const gallery = structure.sections.find((s) => s.images.length === 2);
   assert.deepEqual(gallery.images.map((i) => i.url), ['http://example.com/i/a.jpg', 'http://example.com/i/b.jpg']);
 });
+
+test('extractPageStructure ignores keyword ids on headings and form fields so the section keeps its body text', () => {
+  const page = `<body><main>
+    <section aria-labelledby="about-heading"><h2 id="about-heading">Quienes somos</h2>
+      <div><h3>Calidad</h3><p>Materiales seleccionados para cada obra</p></div>
+      <div><h3>Servicio</h3><p>Atencion personalizada todo el año</p></div></section>
+    <section aria-labelledby="contact-heading"><h2 id="contact-heading">Contacto</h2>
+      <form><input id="contact-name" name="n"><textarea id="contact-message"></textarea></form>
+      <p>Escribinos para pedir presupuesto sin cargo</p></section></main></body>`;
+  const { sections } = extractPageStructure(page, pageUrl);
+  const about = sections.find((s) => s.text.includes('Materiales seleccionados'));
+  const contact = sections.find((s) => s.text.includes('presupuesto sin cargo'));
+  assert.ok(about.text.includes('Atencion personalizada'));
+  assert.notEqual(about, contact);
+  const orphans = sections.filter((s) => s.type === 'uncategorized' && /Materiales|presupuesto/.test(s.text));
+  assert.equal(orphans.length, 0);
+});

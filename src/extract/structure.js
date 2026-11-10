@@ -73,7 +73,13 @@ function tokenMatchesKeyword(token, keyword) {
   });
 }
 
+// A heading, field or inline element is content inside a section, never a landmark itself — the
+// shadcn/Next.js aria-labelledby="about-heading" convention would otherwise claim the heading and
+// block its enclosing <section>, orphaning the body text.
+const NON_LANDMARK_TAG = /^(h[1-6]|p|span|a|button|label|input|textarea|select|option|img|svg)$/i;
+
 function classifyByKeyword($, el) {
+  if (NON_LANDMARK_TAG.test(el.tagName || '')) return null;
   const tokens = `${$(el).attr('class') || ''} ${$(el).attr('id') || ''}`.toLowerCase().split(/\s+/).filter(Boolean);
   const match = KEYWORD_TYPE_MAP.find(([keyword]) => tokens.some((token) => tokenMatchesKeyword(token, keyword)));
   return match ? match[1] : null;
