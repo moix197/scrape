@@ -154,6 +154,13 @@ test('extractPageStructure detects the logo image and its alt text', () => {
   assert.equal(structure.logo.alt, 'Acme Logo');
 });
 
+test('extractPageStructure picks the file named like the logo over a certification mark (balcoppan)', () => {
+  const page = `<html><body><table><tr><td><img src="images/logo_balcoppan.jpg" alt="Fábrica de equipos para pesaje electrónico" width="200" height="54"></td></tr>
+    <tr><td><img src="images/logo%20ISO%209001%20BVQI.jpg" alt="Logo ISO 9001 BVQI" width="169" height="78"></td></tr></table></body></html>`;
+  const structure = extractPageStructure(page, 'http://balcoppan.com.ar/');
+  assert.equal(structure.logo.url, 'http://balcoppan.com.ar/images/logo_balcoppan.jpg');
+});
+
 test('extractPageStructure classifies the youtube iframe as a video, excludes the maps iframe', () => {
   const structure = extractPageStructure(html, pageUrl);
   const testimonials = findSection(structure, 'testimonials');

@@ -827,13 +827,30 @@ function buildUncategorizedSection($, root, pageUrl, order) {
   };
 }
 
-function scoreLogoCandidate($, el, pageUrl, origin) {
+// A certification body's mark ("Logo ISO 9001 BVQI", "sello IRAM") sits next to the logo, never is the logo.
+const CERTIFICATION_MARK = /\biso\s?\d{4,5}\b|\b(bvqi|iram|sgs|bureau veritas|t[uü]v|certificad[oa]|data ?fiscal|afip)\b/i;
+
+function srcBasename(url) {
+  try {
+    return decodeURIComponent(new URL(url).pathname.split('/').pop() || '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+// alt/class/id naming a logo, or a file named like one ("images/logo_balcoppan.jpg", its alt the tagline), plus a
+// point when the file carries the site's own name; a certification mark scores below any candidate.
+function scoreLogoCandidate($, el, pageUrl, origin, url) {
   const $el = $(el);
   const text = `${$el.attr('alt') || ''} ${$el.attr('class') || ''} ${$el.attr('id') || ''}`.toLowerCase();
-  if (text.includes('logo')) return 2;
+  const file = srcBasename(url);
+  if (CERTIFICATION_MARK.test(`${text} ${file}`)) return -1;
+  const siteName = new URL(origin).hostname.replace(/^www\./, '').split('.')[0];
+  const ownName = siteName.length >= 3 && file.includes(siteName) ? 1 : 0;
+  if (text.includes('logo') || file.includes('logo')) return 2 + ownName;
   const anchorHref = $el.closest('a').attr('href');
   const resolvedHref = anchorHref ? resolveUrl(pageUrl, anchorHref) : null;
-  return resolvedHref && (resolvedHref === origin || resolvedHref === `${origin}/`) ? 1 : 0;
+  return (resolvedHref && (resolvedHref === origin || resolvedHref === `${origin}/`) ? 1 : 0) + ownName;
 }
 
 function detectLogo($, pageUrl) {
@@ -846,7 +863,7 @@ function detectLogo($, pageUrl) {
   scope.find('img').each((_, el) => {
     const url = resolveImageUrl($, el, pageUrl);
     if (!url) return;
-    const score = scoreLogoCandidate($, el, pageUrl, origin);
+    const score = scoreLogoCandidate($, el, pageUrl, origin, url);
     if (score > bestScore) {
       bestScore = score;
       best = { url, alt: $(el).attr('alt') || '' };
