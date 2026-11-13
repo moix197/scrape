@@ -14,3 +14,10 @@ test('extractLinksFromPage splits pages, documents and linked images', () => {
   assert.equal(r.linkedImages[0].url, 'https://example.com/big/x.jpg');
   assert.equal(r.linkedImages[0].source, 'linked-image');
 });
+
+test('extractLinksFromPage follows onclick location.href navigations (model pickers)', () => {
+  const page = `<div id="b17" onclick= "location.href='index.php?categoria=barcos&modelo=17'"> </div>
+<button onclick="window.location = '/x.pdf'">pdf</button><div onclick="location.href='https://other.com/a'"></div>`;
+  const r = extractLinksFromPage(page, 'http://site.com/', 'http://site.com');
+  assert.deepEqual(r.links, ['http://site.com/?categoria=barcos&modelo=17']);
+});

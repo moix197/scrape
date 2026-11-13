@@ -54,6 +54,20 @@ function pathMatches(url, pattern) {
   return pattern.test(new URL(url).pathname);
 }
 
+// Old sites navigate from divs/buttons: onclick="location.href='index.php?modelo=31'" (model pickers, menus).
+const ONCLICK_NAVIGATION = /location(?:\.href)?\s*=\s*['"]([^'"]+)['"]/i;
+
+function extractOnclickNavigations($, pageUrl, originUrl) {
+  const urls = [];
+  $('[onclick]').each((_, el) => {
+    const target = ($(el).attr('onclick') || '').match(ONCLICK_NAVIGATION)?.[1];
+    const resolved = target && resolveUrl(pageUrl, target);
+    if (!resolved || !isSameOrigin(resolved, originUrl) || hasBinaryExtension(resolved.split('#')[0])) return;
+    urls.push(normalizeUrl(resolved));
+  });
+  return urls;
+}
+
 // <a href> targets, split three ways: same-origin pages to crawl, downloadable documents
 // (pdf/doc/xls on any origin — a site often points at a certifier's PDFs — with their anchor text), and linked images (lightbox-style <a href="x.jpg">).
 export function extractLinksFromPage(html, pageUrl, originUrl) {
@@ -78,6 +92,7 @@ export function extractLinksFromPage(html, pageUrl, originUrl) {
       links.add(normalizeUrl(resolved));
     }
   });
+  for (const url of extractOnclickNavigations($, pageUrl, originUrl)) links.add(url);
 
   return { links: [...links], documents: [...documents.values()], linkedImages: [...linkedImages.values()] };
 }
