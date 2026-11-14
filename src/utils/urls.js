@@ -7,14 +7,25 @@ export function resolveUrl(baseUrl, maybeRelativeUrl) {
   }
 }
 
+// www.example.com and example.com are one site: a WordPress menu can link the bare host while the start URL has www
+// (estancialaestela.com.ar's Actividades and Eventos were never crawled).
+const siteHost = (host) => host.toLowerCase().replace(/^www\./, '');
+
 export function isSameOrigin(url, originUrl) {
   try {
     const a = new URL(url);
     const b = new URL(originUrl);
-    return a.protocol === b.protocol && a.host === b.host;
+    return a.protocol === b.protocol && siteHost(a.host) === siteHost(b.host);
   } catch {
     return false;
   }
+}
+
+/** The same-site URL on the origin's own host, so www and bare-host links to one page are crawled once. */
+export function onOriginHost(url, originUrl) {
+  const parsed = new URL(url);
+  parsed.host = new URL(originUrl).host;
+  return parsed.toString();
 }
 
 export function getDomainFolderName(url) {

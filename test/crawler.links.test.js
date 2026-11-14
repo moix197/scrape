@@ -21,3 +21,9 @@ test('extractLinksFromPage follows onclick location.href navigations (model pick
   const r = extractLinksFromPage(page, 'http://site.com/', 'http://site.com');
   assert.deepEqual(r.links, ['http://site.com/?categoria=barcos&modelo=17']);
 });
+
+test('extractLinksFromPage crawls bare-host links on the www origin once', () => {
+  const page = `<a href="https://example.com/actividades/">A</a><a href="https://www.example.com/actividades">B</a>`;
+  const r = extractLinksFromPage(page, 'https://www.example.com/', 'https://www.example.com');
+  assert.deepEqual(r.links, ['https://www.example.com/actividades']);
+});

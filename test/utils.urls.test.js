@@ -22,6 +22,11 @@ test('isSameOrigin compares protocol and host', () => {
   assert.equal(isSameOrigin('https://sub.example.com/a', 'https://example.com/b'), false);
 });
 
+test('isSameOrigin treats the www and bare host as one site', () => {
+  assert.equal(isSameOrigin('https://example.com/a', 'https://www.example.com'), true);
+  assert.equal(isSameOrigin('https://www.example.com/a', 'https://example.com'), true);
+});
+
 test('getDomainFolderName extracts a filesystem-safe hostname', () => {
   assert.equal(getDomainFolderName('https://www.banksstudios.com/x'), 'www.banksstudios.com');
 });

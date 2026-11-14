@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { resolveUrl, isSameOrigin, normalizeUrl } from './utils/urls.js';
+import { resolveUrl, isSameOrigin, normalizeUrl, onOriginHost } from './utils/urls.js';
 import { fetchRobotsRules, isAllowed } from './utils/robots.js';
 import { createRateLimiter } from './utils/rateLimiter.js';
 import { withBackoff } from './utils/backoff.js';
@@ -63,7 +63,7 @@ function extractOnclickNavigations($, pageUrl, originUrl) {
     const target = ($(el).attr('onclick') || '').match(ONCLICK_NAVIGATION)?.[1];
     const resolved = target && resolveUrl(pageUrl, target);
     if (!resolved || !isSameOrigin(resolved, originUrl) || hasBinaryExtension(resolved.split('#')[0])) return;
-    urls.push(normalizeUrl(resolved));
+    urls.push(normalizeUrl(onOriginHost(resolved, originUrl)));
   });
   return urls;
 }
@@ -89,7 +89,7 @@ export function extractLinksFromPage(html, pageUrl, originUrl) {
     } else if (pathMatches(clean, IMAGE_EXTENSION)) {
       if (!linkedImages.has(clean)) linkedImages.set(clean, { url: clean, alt: $(el).find('img').attr('alt') || $(el).attr('title') || '', source: 'linked-image', width: null, height: null });
     } else if (!hasBinaryExtension(clean)) {
-      links.add(normalizeUrl(resolved));
+      links.add(normalizeUrl(onOriginHost(resolved, originUrl)));
     }
   });
   for (const url of extractOnclickNavigations($, pageUrl, originUrl)) links.add(url);
