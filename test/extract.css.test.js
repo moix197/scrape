@@ -66,3 +66,15 @@ test('extractLogoBackgroundFromCss picks the #logo background, ignoring comments
   });
   assert.equal(extractLogoBackgroundFromCss('#footer { background:url(pie.gif) }', 'http://example.com/a.css'), null);
 });
+
+test('extractLogoBackgroundFromCss picks the home link inside #logo (image replacement), not other descendants or hover', () => {
+  // kraft-liner.com.ar: <h1 id="logo"><a href="index.html"></a></h1>, the logo on the link.
+  const css = `h1#logo { display:inline-block; }
+    h1#logo span { background:url(../images/swoosh.png) }
+    h1#logo a:hover { background:url(../images/bg-logo-hover.png) }
+    h1#logo a { display:block; text-indent:-9999px; background:url(../images/bg-logo.png) left top no-repeat; }`;
+  assert.deepEqual(extractLogoBackgroundFromCss(css, 'http://kraft-liner.com.ar/css/styles.css'), {
+    url: 'http://kraft-liner.com.ar/images/bg-logo.png',
+    selector: 'h1#logo a',
+  });
+});

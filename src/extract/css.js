@@ -37,22 +37,32 @@ export function extractBackgroundImagesFromCss(cssText, cssBaseUrl) {
 
 const LOGO_SELECTOR = /^[a-z0-9]*(?:#|\.)logo(?::[\w-]+)*$/i;
 
-function lastCompoundSelector(selector) {
-  return selector.trim().split(/\s*[\s>+~]\s*/).pop();
+const HOME_LINK = /^a(?::(?:link|visited))?$/i;
+const STATE_PSEUDO = /:(?:hover|focus|active)\b/i;
+
+// The rule's subject as a selector the page can be checked against: the logo element itself, or the
+// home link inside it (`h1#logo a`, image replacement: an empty link carrying the logo as its
+// background, kraft-liner.com.ar). Other descendants (`#logo span`) and hover states are not the logo.
+function logoSubject(selector) {
+  if (STATE_PSEUDO.test(selector)) return null;
+  const parts = selector.trim().split(/\s*[\s>+~]\s*/);
+  const subject = parts.at(-1);
+  if (LOGO_SELECTOR.test(subject)) return subject.replace(/:[\w-]+$/, '');
+  if (parts.length >= 2 && HOME_LINK.test(subject) && LOGO_SELECTOR.test(parts.at(-2))) return `${parts.at(-2).replace(/:[\w-]+$/, '')} a`;
+  return null;
 }
 
-// The site logo is often a CSS background on `#logo` / `.logo` (an empty element holding a home
-// link), invisible to <img> detection. Only a rule whose own subject is the logo element counts,
-// not a descendant like `#logo a`; decorative backgrounds elsewhere are left alone.
+// The site logo is often a CSS background on `#logo` / `.logo` or its home link, invisible to <img>
+// detection; decorative backgrounds elsewhere are left alone.
 export function extractLogoBackgroundFromCss(cssText, cssBaseUrl) {
   const uncommented = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
   const ruleRegex = /([^{}]+)\{([^}]*)\}/g;
   let rule;
   while ((rule = ruleRegex.exec(uncommented))) {
-    const selector = rule[1].split(',').map(lastCompoundSelector).find((s) => LOGO_SELECTOR.test(s));
+    const selector = rule[1].split(',').map(logoSubject).find(Boolean);
     if (!selector) continue;
     const [url] = extractBackgroundImagesFromCss(rule[2], cssBaseUrl);
-    if (url) return { url, selector: selector.replace(/:[\w-]+$/, '') };
+    if (url) return { url, selector };
   }
   return null;
 }
