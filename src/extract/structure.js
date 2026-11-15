@@ -541,11 +541,12 @@ function normalizeMailtoValue(href) {
   return address.trim().toLowerCase();
 }
 
+// Image-map <area href="mailto:"> counts too: NetObjects sites put the e-mail on a hotspot of a banner image.
 function extractSectionContacts($, scopeEl, excludeInside) {
   const contacts = new Map();
   $(scopeEl)
-    .find('a[href]')
-    .addBack('a[href]')
+    .find('a[href], area[href]')
+    .addBack('a[href], area[href]')
     .each((_, el) => {
       if (isExcluded($, el, excludeInside)) return;
       const href = $(el).attr('href');

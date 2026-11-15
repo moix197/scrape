@@ -479,3 +479,9 @@ test('extractPageStructure claims page copy wrapped in the site <header> as its 
   const short = extractPageStructure(page('<p>Galeria de trabajos</p>'), pageUrl).sections;
   assert.equal(short.some((s) => s.type === 'section'), false);
 });
+
+test('extractPageStructure takes an image-map <area href="mailto:"> as a section contact (NetObjects banner)', () => {
+  const page = `<body><table><tr><td><img src="home8.jpg" usemap="#m"><map name="m"><area href="./about.html"><area href="mailto:Info@Site.com"></map></td></tr></table></body>`;
+  const structure = extractPageStructure(page, 'https://example.com/');
+  assert.deepEqual(structure.sections.flatMap((s) => s.contacts), [{ type: 'mailto', value: 'info@site.com', label: 'info@site.com' }]);
+});
