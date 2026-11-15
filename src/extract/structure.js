@@ -202,11 +202,30 @@ function claimTabPanels($, claimedEls) {
   return claimed;
 }
 
+// A page's own copy can sit inside the site's <header> (emesrl.com.ar wraps every page's body,
+// div#contenido, in it): a header child holding no claimed landmark, no nav/menu and no logo link
+// that carries a page's worth of words is page content, claimed as a section of its own.
+const HEADER_CONTENT_MIN_WORDS = 40;
+const wordCount = (text) => text.split(/\s+/).filter(Boolean).length;
+
+function claimHeaderContent($, priorityClaimed, claimedEls) {
+  const headers = priorityClaimed.filter(({ el, type }) => type === 'header' && classifyByTag(el) === 'header');
+  return headers.flatMap(({ el }) =>
+    $(el)
+      .children()
+      .toArray()
+      .filter((child) => !containsAnyClaimed($, child, claimedEls) && !$(child).find('nav, ul.menu, h1 a, a > img').length)
+      .filter((child) => wordCount($(child).text()) >= HEADER_CONTENT_MIN_WORDS)
+      .map((child) => ({ el: child, type: 'section' })),
+  );
+}
+
 function claimLandmarks($) {
   const allEls = $('body *').toArray();
   const { claimed: priorityClaimed, claimedEls: priorityClaimedEls } = claimPriorityLandmarks($, allEls);
-  const genericClaimed = claimGenericLandmarks($, allEls, priorityClaimedEls);
-  const landmarks = [...priorityClaimed, ...genericClaimed];
+  const headerContent = claimHeaderContent($, priorityClaimed, priorityClaimedEls);
+  const genericClaimed = claimGenericLandmarks($, allEls, [...priorityClaimedEls, ...headerContent.map((c) => c.el)]);
+  const landmarks = [...priorityClaimed, ...headerContent, ...genericClaimed];
   const tabPanels = claimTabPanels($, landmarks.map((landmark) => landmark.el));
   return sortByDocumentOrder($, allEls, [...landmarks, ...tabPanels]);
 }
@@ -376,11 +395,14 @@ function extractSectionVideos($, scopeEl, pageUrl, excludeInside) {
   return videos;
 }
 
+// h5/h6 too: old templates title their cards with them (emesrl.com.ar's product and service <h6>s).
+const HEADING_TAGS = 'h1, h2, h3, h4, h5, h6';
+
 function extractSectionHeadings($, scopeEl, excludeInside) {
   const headings = [];
   $(scopeEl)
-    .find('h1, h2, h3, h4')
-    .addBack('h1, h2, h3, h4')
+    .find(HEADING_TAGS)
+    .addBack(HEADING_TAGS)
     .each((_, el) => {
       if (isExcluded($, el, excludeInside)) return;
       // A <br> inside a heading is a line break, not nothing: "Descubrí la<br>experiencia" read "laexperiencia".

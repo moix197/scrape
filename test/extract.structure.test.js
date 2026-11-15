@@ -466,3 +466,16 @@ test('extractPageStructure reads a <br> inside a heading as a line break (estanc
   const section = extractPageStructure(html, 'https://x.com/').sections.find((s) => s.headings.length);
   assert.equal(section.headings[0].text, 'Descubrí la\nexperiencia La Estela');
 });
+
+test('extractPageStructure claims page copy wrapped in the site <header> as its own section (emesrl.com.ar)', () => {
+  const copy = 'Eme s.r.l. es una fundición de metales ferrosos y no ferrosos tales como bronce, aluminio, latón, cobre, aceros, fundición gris y nodular. También tenemos un sector de maquinado completo, granallado y armado de piezas para la industria de la región.';
+  const page = (body) => `<body><div><header><div class="bg-1"><h1><a href="index.html"><img src="logo.png"></a></h1>
+    <nav><ul class="menu"><li><a href="index.php">Home</a></li><li><a href="?seccion=empresa">Empresa</a></li></ul></nav></div>
+    <div id="contenido"><div id="titulo">Empresa</div>${body}</div></header></div></body>`;
+  const { sections } = extractPageStructure(page(`<p>${copy}</p>`), pageUrl);
+  const content = sections.find((s) => s.type === 'section');
+  assert.ok(content.text.startsWith('Empresa\nEme s.r.l.'));
+  assert.ok(!sections.find((s) => s.type === 'header').text.includes('fundición'));
+  const short = extractPageStructure(page('<p>Galeria de trabajos</p>'), pageUrl).sections;
+  assert.equal(short.some((s) => s.type === 'section'), false);
+});
