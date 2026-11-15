@@ -24,9 +24,10 @@ export function createManifestBuilder(siteUrl) {
       sectionType = null,
       sectionLabel = null,
       isLogo = false,
+      imageMap = false,
       usages = [],
     }) {
-      images.push({ sourcePageUrl, imageUrl, localFilename, width, height, alt, sectionType, sectionLabel, isLogo, usages });
+      images.push({ sourcePageUrl, imageUrl, localFilename, width, height, alt, sectionType, sectionLabel, isLogo, ...(imageMap ? { imageMap } : {}), usages });
     },
     addPage({ url, title, description }) {
       pages.push({ url, title, description });

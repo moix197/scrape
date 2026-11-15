@@ -73,3 +73,8 @@ test('extractImages finds image string literals in inline scripts, in order, res
   const urls = extractImages(html, 'http://example.com/bajos.html').map((i) => i.url);
   assert.deepEqual(urls, ['http://example.com/imagenes/a.jpg', 'http://example.com/imagenes/b.png']);
 });
+
+test('extractImages marks an image map (<img usemap>) as one: a banner of links, not content (NetObjects)', () => {
+  const images = extractImages('<img src="home8.jpg" usemap="#map0"><map name="map0"><area href="./about.html"></map><img src="car.jpg">', 'https://example.com/');
+  assert.deepEqual(images.map((i) => [i.url, !!i.imageMap]), [['https://example.com/home8.jpg', true], ['https://example.com/car.jpg', false]]);
+});

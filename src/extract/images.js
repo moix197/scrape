@@ -19,10 +19,10 @@ function isUsableUrl(url) {
   return url !== null && !url.startsWith('data:');
 }
 
-function pushResolvedImage(images, pageUrl, { url, alt, source, width, height }) {
+function pushResolvedImage(images, pageUrl, { url, alt, source, width, height, imageMap }) {
   const resolved = resolveUrl(pageUrl, url);
   if (!isUsableUrl(resolved)) return;
-  images.push({ url: resolved, alt, source, width, height });
+  images.push({ url: resolved, alt, source, width, height, ...(imageMap ? { imageMap: true } : {}) });
 }
 
 function extractImgTagImages($, pageUrl) {
@@ -33,8 +33,10 @@ function extractImgTagImages($, pageUrl) {
     const width = parseDimension($el.attr('width'));
     const height = parseDimension($el.attr('height'));
 
+    // An image map (<img usemap>) is a banner of links: NetObjects menus and headers, chrome rather than content.
+    const imageMap = !!$el.attr('usemap');
     const src = $el.attr('src');
-    if (src) pushResolvedImage(images, pageUrl, { url: src, alt, source: 'img-src', width, height });
+    if (src) pushResolvedImage(images, pageUrl, { url: src, alt, source: 'img-src', width, height, imageMap });
 
     const srcset = $el.attr('srcset');
     if (srcset) {

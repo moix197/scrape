@@ -342,7 +342,7 @@ function extractSectionImages($, scopeEl, pageUrl, excludeInside) {
       const url = resolveImageUrl($, el, pageUrl);
       if (!url) return;
       const caption = findFigureCaption($, el) || findTableCellCaption($, el);
-      images.push({ url, alt: $(el).attr('alt') || '', order: images.length, ...(caption ? { caption } : {}) });
+      images.push({ url, alt: $(el).attr('alt') || '', order: images.length, ...(caption ? { caption } : {}), ...($(el).attr('usemap') ? { imageMap: true } : {}) });
     });
   extractWowImages($, scopeEl, excludeInside, images);
   return images;

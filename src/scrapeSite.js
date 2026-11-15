@@ -134,6 +134,7 @@ function addImageManifestRow(manifest, image, { localFilename, width, height }, 
     alt: image.alt,
     ...(imageSectionLookup.get(image.url) ?? {}),
     isLogo: image.url === logoUrl,
+    ...(image.imageMap ? { imageMap: true } : {}),
   });
 }
 
