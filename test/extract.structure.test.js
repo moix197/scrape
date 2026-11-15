@@ -445,3 +445,9 @@ test('extractPageStructure ignores keyword ids on headings and form fields so th
   const orphans = sections.filter((s) => s.type === 'uncategorized' && /Materiales|presupuesto/.test(s.text));
   assert.equal(orphans.length, 0);
 });
+
+test('extractPageStructure reads a <br> inside a heading as a line break (estancialaestela)', () => {
+  const html = '<html><body><section><h1>Descubrí la<br>experiencia La Estela</h1><p>Un lodge patagónico frente al Lago Viedma, con vistas al Fitz Roy.</p></section></body></html>';
+  const section = extractPageStructure(html, 'https://x.com/').sections.find((s) => s.headings.length);
+  assert.equal(section.headings[0].text, 'Descubrí la\nexperiencia La Estela');
+});

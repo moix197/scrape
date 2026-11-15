@@ -375,7 +375,8 @@ function extractSectionHeadings($, scopeEl, excludeInside) {
     .addBack('h1, h2, h3, h4')
     .each((_, el) => {
       if (isExcluded($, el, excludeInside)) return;
-      const text = $(el).text().trim();
+      // A <br> inside a heading is a line break, not nothing: "Descubrí la<br>experiencia" read "laexperiencia".
+      const text = $(el).clone().find('br').replaceWith('\n').end().text().trim();
       if (!text) return;
       headings.push({ level: Number(el.tagName[1]), text });
     });
