@@ -68,6 +68,34 @@ function extractOnclickNavigations($, pageUrl, originUrl) {
   return urls;
 }
 
+// An age gate ("Sos mayor de 18 anos? SI NO", suter.com.ar) is no content page: a short page asking the visitor's age,
+// whose "yes" runs a script that sets a cookie and moves on (location.replace('index_es.php')). It is not recorded; the
+// crawl follows those script targets instead (a "no" page saying the site needs 18+ is a gate too).
+const AGE_GATE_TEXT = /mayor(es)? de (18|21|edad)|edad legal|legal (drinking )?age|(over|older than) (18|21)\b|are you (18|21)\b/i;
+const AGE_GATE_MAX_TEXT = 600;
+const SCRIPT_NAVIGATION = /location(?:\.href)?\s*=\s*['"]([^'"]+)['"]|location\.(?:replace|assign)\(\s*['"]([^'"]+)['"]\s*\)/gi;
+
+export function isAgeGate(html) {
+  // Birth-date pickers (day/month/year options) are no text of the page's.
+  const $ = cheerio.load(html);
+  $('select').remove();
+  const text = extractVisibleText($.html());
+  return text.length <= AGE_GATE_MAX_TEXT && AGE_GATE_TEXT.test(text);
+}
+
+/** Same-origin pages an age gate's inline scripts navigate to (commented-out code skipped). */
+export function extractScriptNavigations(html, pageUrl, originUrl) {
+  const $ = cheerio.load(html);
+  const code = $('script:not([src])').map((_, el) => $(el).text()).get().join('\n').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+  const urls = [];
+  for (const match of code.matchAll(SCRIPT_NAVIGATION)) {
+    const resolved = resolveUrl(pageUrl, match[1] ?? match[2]);
+    if (!resolved || !isSameOrigin(resolved, originUrl) || hasBinaryExtension(resolved.split('#')[0])) continue;
+    urls.push(normalizeUrl(onOriginHost(resolved, originUrl)));
+  }
+  return urls;
+}
+
 // <a href> targets, split three ways: same-origin pages to crawl, downloadable documents
 // (pdf/doc/xls on any origin — a site often points at a certifier's PDFs — with their anchor text), and linked images (lightbox-style <a href="x.jpg">).
 export function extractLinksFromPage(html, pageUrl, originUrl) {
@@ -180,6 +208,7 @@ async function processPage(url, deps) {
   const { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, originUrl, robotsRules, browserSession } = deps;
   const html = await fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, browserSession });
   if (html === null) return null;
+  if (isAgeGate(html)) return { gate: true, links: [...extractScriptNavigations(html, url, originUrl), ...extractLinksFromPage(html, url, originUrl).links] };
 
   const meta = extractPageMeta(html, url);
   const pageImages = extractImages(html, url).map((img) => ({ ...img, sourcePageUrl: url }));
@@ -258,6 +287,14 @@ export async function crawlSite(rootUrl, options = {}) {
     });
 
     if (result === null) continue;
+    if (result.gate) {
+      // The gate's targets stand where the gate stood: a gate costs no depth.
+      for (const link of result.links.filter((l) => !visited.has(l)).reverse()) {
+        visited.add(link);
+        queue.unshift({ url: link, depth });
+      }
+      continue;
+    }
 
     pages.push(result.page);
     allImages.push(...result.images);
