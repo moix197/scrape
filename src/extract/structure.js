@@ -305,6 +305,14 @@ function findTableCellCaption($, imgEl) {
   return cellCaptionText($, below);
 }
 
+// <figure><img><figcaption>: the figure's own caption, when the figure holds that one image.
+function findFigureCaption($, imgEl) {
+  const figure = $(imgEl).closest('figure');
+  if (!figure.length || figure.find('img').length !== 1) return '';
+  const caption = figure.children('figcaption').first();
+  return caption.length ? cellCaptionText($, caption.get(0)) : '';
+}
+
 function extractSectionImages($, scopeEl, pageUrl, excludeInside) {
   const images = [];
   $(scopeEl)
@@ -314,7 +322,7 @@ function extractSectionImages($, scopeEl, pageUrl, excludeInside) {
       if (isExcluded($, el, excludeInside)) return;
       const url = resolveImageUrl($, el, pageUrl);
       if (!url) return;
-      const caption = findTableCellCaption($, el);
+      const caption = findFigureCaption($, el) || findTableCellCaption($, el);
       images.push({ url, alt: $(el).attr('alt') || '', order: images.length, ...(caption ? { caption } : {}) });
     });
   extractWowImages($, scopeEl, excludeInside, images);
@@ -839,15 +847,29 @@ function srcBasename(url) {
   }
 }
 
+// An image that names itself the logo first: a file named logo.*, or an alt opening on "Logo" whose first segment names
+// no certification ("Logo EMF - ... - Empresa Certificada ISO 9001", metalurgicafridman's header logo: the later words
+// describe the company). "Logo ISO 9001 BVQI" is still the certification body's mark.
+const SELF_NAMED_LOGO = /^logo\b/i;
+const ALT_SEGMENT = /\s[-–|]\s/;
+
+function namesItselfLogo(alt, file) {
+  const lead = alt.trim().split(ALT_SEGMENT)[0];
+  return /^logo\.[a-z]+$/.test(file) || (SELF_NAMED_LOGO.test(lead) && !CERTIFICATION_MARK.test(lead));
+}
+
 // alt/class/id naming a logo, or a file named like one ("images/logo_balcoppan.jpg", its alt the tagline), plus a
-// point when the file carries the site's own name; a certification mark scores below any candidate.
+// point when the file carries the site's own name; a certification mark scores below any candidate. A self-named logo
+// outranks an icon whose id merely contains "logo" (metalurgicafridman's contact-form envelope, #contactSec_logo).
 function scoreLogoCandidate($, el, pageUrl, origin, url) {
   const $el = $(el);
   const text = `${$el.attr('alt') || ''} ${$el.attr('class') || ''} ${$el.attr('id') || ''}`.toLowerCase();
   const file = srcBasename(url);
-  if (CERTIFICATION_MARK.test(`${text} ${file}`)) return -1;
+  const selfNamed = namesItselfLogo($el.attr('alt') || '', file);
+  if (!selfNamed && CERTIFICATION_MARK.test(`${text} ${file}`)) return -1;
   const siteName = new URL(origin).hostname.replace(/^www\./, '').split('.')[0];
   const ownName = siteName.length >= 3 && file.includes(siteName) ? 1 : 0;
+  if (selfNamed) return 3 + ownName;
   if (text.includes('logo') || file.includes('logo')) return 2 + ownName;
   const anchorHref = $el.closest('a').attr('href');
   const resolvedHref = anchorHref ? resolveUrl(pageUrl, anchorHref) : null;

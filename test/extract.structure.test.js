@@ -161,6 +161,13 @@ test('extractPageStructure picks the file named like the logo over a certificati
   assert.equal(structure.logo.url, 'http://balcoppan.com.ar/images/logo_balcoppan.jpg');
 });
 
+test('extractPageStructure picks the self-named logo over an icon whose id contains "logo" (metalurgicafridman)', () => {
+  const page = `<html><body><div id="header"><a href="index.php"><img src="css/images/logo.png" alt="Logo EMF - Establecimiento Metalúrgico Fridman - Empresa Certificada ISO 9001-2008 - Ir a HOME"></a></div>
+    <div id="contact"><h3><img id="contactSec_logo" src="css/images/form-mail-sm.png">Formulario de Contacto</h3></div></body></html>`;
+  const structure = extractPageStructure(page, 'http://metalurgicafridman.com.ar/');
+  assert.equal(structure.logo.url, 'http://metalurgicafridman.com.ar/css/images/logo.png');
+});
+
 test('extractPageStructure classifies the youtube iframe as a video, excludes the maps iframe', () => {
   const structure = extractPageStructure(html, pageUrl);
   const testimonials = findSection(structure, 'testimonials');
@@ -414,6 +421,14 @@ test('extractPageStructure pairs table-cell images with a caption in the same ce
   assert.equal(images[1].caption, 'Puñales\nVariedad de encabados');
   assert.equal(images[1].alt, 'click');
   assert.equal('caption' in images[2], false);
+});
+
+test('extractPageStructure takes a figure image caption from its figcaption (metalurgicafridman productos)', () => {
+  const page = `<body><section><figure><img src="/sm/1.jpg"><figcaption>Colada de Aleación de Bronce</figcaption></figure>
+    <figure><img src="/sm/2.jpg"><img src="/sm/2b.jpg"><figcaption>Two photos</figcaption></figure></section></body>`;
+  const images = extractPageStructure(page, pageUrl).sections.flatMap((s) => s.images);
+  assert.equal(images[0].caption, 'Colada de Aleación de Bronce');
+  assert.equal('caption' in images[1], false);
 });
 
 test('extractPageStructure makes each tab panel its own section labelled from the tab id, with script gallery images attached', () => {
