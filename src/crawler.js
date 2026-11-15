@@ -15,7 +15,7 @@ import {
   extractLogoBackgroundFromCss,
   extractFontsFromCss,
 } from './extract/css.js';
-import { extractColorRules, extractInlineStyleBlocks } from './extract/colors.js';
+import { extractAttributeColorRules, extractColorRules, extractInlineStyleBlocks } from './extract/colors.js';
 import { renderWithPlaywright } from './render/playwrightFallback.js';
 
 const MIN_TEXT_LENGTH = 200;
@@ -221,7 +221,7 @@ async function processPage(url, deps) {
   const cssImages = cssExtras.images.map((img) => ({ ...img, sourcePageUrl: url }));
   const cssLogo = pickCssLogo(html, cssExtras.logoCandidates);
   if (cssLogo) structure.logo = cssLogo;
-  const inlineColorRules = extractColorRules(extractInlineStyleBlocks(html));
+  const inlineColorRules = [...extractColorRules(extractInlineStyleBlocks(html)), ...extractAttributeColorRules(html)];
 
   return {
     page: { url, title: meta.title, description: meta.description, structure, meta, site: extractSiteMeta(html, url) },

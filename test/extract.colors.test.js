@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  extractAttributeColorRules,
   extractInlineStyleBlocks,
   extractColorRules,
   scoreSiteColors,
@@ -86,4 +87,13 @@ test('scoreSiteColors sorts descending and truncates to limit', () => {
     ['#111111', '#222222'],
   );
   assert.ok(scored[0].score >= scored[1].score);
+});
+
+test('extractAttributeColorRules reads body/table bgcolor and font color, never link colours (NetObjects)', () => {
+  const html = `<body bgcolor="#000000" link="#0033CC"><table><tr><td bgcolor="#000000"><font color="#BB0104">ASA 450 - S</font></td></tr></table></body>`;
+  assert.deepEqual(extractAttributeColorRules(html), [
+    { selector: 'body', hex: '#000000' },
+    { selector: 'td', hex: '#000000' },
+    { selector: 'font', hex: '#bb0104' },
+  ]);
 });

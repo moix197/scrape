@@ -10,6 +10,26 @@ const SELECTOR_WEIGHTS = [
   [/\bfooter\b/i, 2],
 ];
 
+// Presentational attributes of pre-CSS sites (NetObjects, FrontPage): a black <body bgcolor> and red <font color>
+// captions are nestorsalerno.com's whole palette, with no stylesheet at all. Link colours stay out: those builders
+// write their default blue on every page whatever the design.
+const ATTRIBUTE_COLORS = [
+  ['body[bgcolor]', 'bgcolor', 'body'],
+  ['table[bgcolor], td[bgcolor], tr[bgcolor]', 'bgcolor', 'td'],
+  ['font[color]', 'color', 'font'],
+];
+
+export function extractAttributeColorRules(html) {
+  const $ = cheerio.load(html);
+  return ATTRIBUTE_COLORS.flatMap(([query, attribute, selector]) =>
+    $(query)
+      .map((_, el) => normalizeColorValue($(el).attr(attribute) ?? ''))
+      .get()
+      .filter(Boolean)
+      .map((hex) => ({ selector, hex })),
+  );
+}
+
 export function extractInlineStyleBlocks(html) {
   const $ = cheerio.load(html);
   return $('style')
