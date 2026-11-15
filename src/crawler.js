@@ -96,7 +96,7 @@ export function extractScriptNavigations(html, pageUrl, originUrl) {
   return urls;
 }
 
-// <a href> targets, split three ways: same-origin pages to crawl, downloadable documents
+// <a href> and image-map <area href> targets, split three ways: same-origin pages to crawl, downloadable documents
 // (pdf/doc/xls on any origin — a site often points at a certifier's PDFs — with their anchor text), and linked images (lightbox-style <a href="x.jpg">).
 export function extractLinksFromPage(html, pageUrl, originUrl) {
   const $ = cheerio.load(html);
@@ -104,7 +104,7 @@ export function extractLinksFromPage(html, pageUrl, originUrl) {
   const documents = new Map();
   const linkedImages = new Map();
 
-  $('a[href]').each((_, el) => {
+  $('a[href], area[href]').each((_, el) => {
     const resolved = resolveUrl(pageUrl, $(el).attr('href'));
     if (!resolved) return;
     const clean = resolved.split('#')[0];

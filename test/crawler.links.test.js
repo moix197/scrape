@@ -27,3 +27,9 @@ test('extractLinksFromPage crawls bare-host links on the www origin once', () =>
   const r = extractLinksFromPage(page, 'https://www.example.com/', 'https://www.example.com');
   assert.deepEqual(r.links, ['https://www.example.com/actividades']);
 });
+
+test('extractLinksFromPage follows image-map <area href> links (NetObjects nav)', () => {
+  const page = `<img usemap="#m"><map name="m"><area shape="rect" href="./about_salerno.html"><area href="mailto:a@b.com"></map>`;
+  const r = extractLinksFromPage(page, 'https://example.com/', 'https://example.com');
+  assert.deepEqual(r.links, ['https://example.com/about_salerno.html']);
+});
