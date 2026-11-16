@@ -242,7 +242,13 @@ async function withScriptViews(url, html, deps) {
   if (!rendered) return extractPageResult(url, html, deps);
   const result = await extractPageResult(url, rendered.base, deps);
   result.views = [];
-  for (const view of rendered.views) result.views.push(await extractPageResult(view.url, view.html, deps, result.cssExtras));
+  for (const view of rendered.views) {
+    const record = await extractPageResult(view.url, view.html, deps, result.cssExtras);
+    // Its rendered markup is the only copy of it (a fetch of its URL answers the base page): readers of the page's own
+    // markup (its tables) need it.
+    record.page.snapshotHtml = view.html;
+    result.views.push(record);
+  }
   return result;
 }
 

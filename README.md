@@ -78,6 +78,8 @@ computed-style.json  per-page getComputedStyle samples (body/h1/h2/p/a/button/na
 copy.md            one block per page (title, description), then one subsection per
                    structure.json section with that section's body text
 fetch-log.jsonl    one JSON line per HTTP fetch (url, status, timestamp, method)
+views/             rendered markup of script views (a list a script fills, each item clicked: <page>?vista=<item>), one
+                   <hash>.html each; their structure.json page records it as `snapshot`
 ```
 
 `screenshots/` and `computed-style.json` come from a real browser render of the

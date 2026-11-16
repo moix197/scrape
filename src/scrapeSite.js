@@ -313,6 +313,16 @@ function pickSiteMeta(pages) {
   return homePage.site;
 }
 
+// A script view's rendered markup (crawler renderListViews) goes to views/<hash>.html; its page records the path.
+async function writeViewSnapshots(outputBase, pages) {
+  for (const page of pages.filter((p) => p.snapshotHtml)) {
+    page.snapshot = `views/${sha1Hex(page.url).slice(0, 16)}.html`;
+    await fs.mkdir(path.join(outputBase, 'views'), { recursive: true });
+    await fs.writeFile(path.join(outputBase, page.snapshot), page.snapshotHtml);
+    delete page.snapshotHtml;
+  }
+}
+
 export function buildStructureOutput(pages) {
   const withLogo = pages.find((p) => p.structure.logo);
   const socialLinks = dedupeLinksByUrl(pages.flatMap((p) => p.structure.socialLinks));
@@ -329,6 +339,7 @@ export function buildStructureOutput(pages) {
       sections: stripChromeSections(p.structure.sections),
       logo: p.structure.logo,
       meta: p.meta,
+      ...(p.snapshot && { snapshot: p.snapshot }),
     })),
   };
 }
@@ -407,6 +418,7 @@ export async function runScrape(cliOptions) {
       throw new Error(`No pages could be crawled from ${cliOptions.rootUrl} (unreachable, or disallowed by robots.txt).`);
     }
 
+    await writeViewSnapshots(outputBase, crawlResult.pages);
     const structureOutput = buildStructureOutput(crawlResult.pages);
     const imageSectionLookup = buildImageSectionLookup(crawlResult.pages);
     const logoUrl = structureOutput.logo?.url ?? null;
