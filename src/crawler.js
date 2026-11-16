@@ -17,6 +17,7 @@ import {
 } from './extract/css.js';
 import { extractAttributeColorRules, extractColorRules, extractInlineStyleBlocks } from './extract/colors.js';
 import { renderWithPlaywright } from './render/playwrightFallback.js';
+import { renderListViews, scriptFilledListIds } from './render/scriptListViews.js';
 
 const MIN_TEXT_LENGTH = 200;
 
@@ -204,12 +205,10 @@ function pickCssLogo(html, logoCandidates) {
   return { url: match.url, alt: $(match.selector).find('a[title]').first().attr('title') || '' };
 }
 
-async function processPage(url, deps) {
-  const { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, originUrl, robotsRules, browserSession } = deps;
-  const html = await fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, browserSession });
-  if (html === null) return null;
-  if (isAgeGate(html)) return { gate: true, links: [...extractScriptNavigations(html, url, originUrl), ...extractLinksFromPage(html, url, originUrl).links] };
-
+// One page's record from its html: structure, media, links, documents. `cssExtras` (the page's stylesheet finds) is
+// fetched unless given: a script view shares its base page's (its colour rules counted once, with the base).
+async function extractPageResult(url, html, deps, cssExtras) {
+  const { userAgent, rateLimiter, onFetchLogged, originUrl, robotsRules } = deps;
   const meta = extractPageMeta(html, url);
   const pageImages = extractImages(html, url).map((img) => ({ ...img, sourcePageUrl: url }));
   const fontLinks = extractFontLinks(html, url);
@@ -217,9 +216,9 @@ async function processPage(url, deps) {
   const videos = extractVideos(html, url).map((v) => ({ ...v, sourcePageUrl: url }));
   const { links, documents, linkedImages } = extractLinksFromPage(html, url, originUrl);
 
-  const cssExtras = await collectStylesheetExtras(html, url, { userAgent, rateLimiter, onFetchLogged, originUrl, robotsRules });
-  const cssImages = cssExtras.images.map((img) => ({ ...img, sourcePageUrl: url }));
-  const cssLogo = pickCssLogo(html, cssExtras.logoCandidates);
+  const extras = cssExtras ?? (await collectStylesheetExtras(html, url, { userAgent, rateLimiter, onFetchLogged, originUrl, robotsRules }));
+  const cssImages = extras.images.map((img) => ({ ...img, sourcePageUrl: url }));
+  const cssLogo = pickCssLogo(html, extras.logoCandidates);
   if (cssLogo) structure.logo = cssLogo;
   const inlineColorRules = [...extractColorRules(extractInlineStyleBlocks(html)), ...extractAttributeColorRules(html)];
 
@@ -227,11 +226,32 @@ async function processPage(url, deps) {
     page: { url, title: meta.title, description: meta.description, structure, meta, site: extractSiteMeta(html, url) },
     images: [...pageImages, ...linkedImages.map((img) => ({ ...img, sourcePageUrl: url })), ...cssImages],
     documents,
-    fonts: [...fontLinks, ...cssExtras.fonts],
+    fonts: [...fontLinks, ...extras.fonts],
     videos,
     links,
-    colorRules: [...inlineColorRules, ...cssExtras.colorRules],
+    colorRules: [...inlineColorRules, ...(cssExtras ? [] : extras.colorRules)],
+    cssExtras: extras,
   };
+}
+
+// A page whose list a script fills and whose items swap its content (renderListViews): the page with that list linked,
+// plus one record per item view.
+async function withScriptViews(url, html, deps) {
+  const listIds = deps.browserSession?.available ? scriptFilledListIds(html) : [];
+  const rendered = listIds.length ? await renderListViews(url, html, listIds, deps.browserSession) : null;
+  if (!rendered) return extractPageResult(url, html, deps);
+  const result = await extractPageResult(url, rendered.base, deps);
+  result.views = [];
+  for (const view of rendered.views) result.views.push(await extractPageResult(view.url, view.html, deps, result.cssExtras));
+  return result;
+}
+
+async function processPage(url, deps) {
+  const { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, originUrl, browserSession } = deps;
+  const html = await fetchPageHtml(url, { userAgent, rateLimiter, onFetchLogged, minImagesThreshold, forcePlaywright, browserSession });
+  if (html === null) return null;
+  if (isAgeGate(html)) return { gate: true, links: [...extractScriptNavigations(html, url, originUrl), ...extractLinksFromPage(html, url, originUrl).links] };
+  return withScriptViews(url, html, deps);
 }
 
 function dedupeByUrlKeepFirst(items) {
@@ -296,13 +316,18 @@ export async function crawlSite(rootUrl, options = {}) {
       continue;
     }
 
-    pages.push(result.page);
-    allImages.push(...result.images);
-    allFonts.push(...result.fonts);
-    allVideos.push(...result.videos);
-    allColorRules.push(...result.colorRules);
-    allDocuments.push(...result.documents);
-    onPageCrawled?.(result.page);
+    for (const record of [result, ...(result.views ?? [])]) {
+      // A script view is a page of its own whose URL is never fetched (the server answers the base page).
+      if (record !== result && visited.has(record.page.url)) continue;
+      visited.add(record.page.url);
+      pages.push(record.page);
+      allImages.push(...record.images);
+      allFonts.push(...record.fonts);
+      allVideos.push(...record.videos);
+      allColorRules.push(...record.colorRules);
+      allDocuments.push(...record.documents);
+      onPageCrawled?.(record.page);
+    }
 
     if (depth < maxDepth) {
       for (const link of result.links) {

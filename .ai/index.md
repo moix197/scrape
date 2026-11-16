@@ -16,6 +16,7 @@ anywhere real.
 | `utils/decodeHtml` | byte-level HTML charset detection + decode | `src/utils/decodeHtml.js` | [html-charset-decoding](decisions/html-charset-decoding.md) |
 | `render/playwrightFallback` | one shared browser session per run; the only Playwright import | `src/render/playwrightFallback.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
 | `render/renderNavPages` | screenshots (desktop/mobile PNG) + `screenshots/index.json` for home + nav pages | `src/render/renderNavPages.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
+| `render/scriptListViews` | a page shipping an empty list a script fills (XML-fed catalogue menus, neris.com.ar productos.php) is rendered and each item clicked: one page per view at `<page>?vista=<label-slug>`, the list linked to them in base page and views; crawler records views without fetching them | `src/render/scriptListViews.js`, `src/crawler.js` | |
 | `render/computedStyle` | getComputedStyle samples per page + site-level fonts/colors aggregate | `src/render/computedStyle.js` | [render-nav-pages-always-on](decisions/render-nav-pages-always-on.md) |
 
 ## Cross-cutting
