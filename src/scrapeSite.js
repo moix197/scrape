@@ -5,6 +5,7 @@ import { crawlSite } from './crawler.js';
 import { getDomainFolderName } from './utils/urls.js';
 import { sha1Hex } from './utils/hash.js';
 import { downloadImage } from './images/download.js';
+import { downloadArchivedImage } from './images/archived.js';
 import { createContentDedupe, passesSizeFilter } from './images/dedup.js';
 import { extractDominantColors } from './images/palette.js';
 import { downloadDocuments } from './documents/download.js';
@@ -94,7 +95,8 @@ async function downloadAndFilterImage(
     return { ...cached, hash, fromCache: true };
   }
 
-  const downloaded = await downloadImage(image.url, { userAgent });
+  // A dead logo is fetched from its archived snapshot (images/archived.js).
+  const downloaded = (await downloadImage(image.url, { userAgent })) ?? (image.url === logoUrl ? await downloadArchivedImage(image.url, { userAgent }) : null);
   if (downloaded === null) return null;
 
   const hash = sha1Hex(downloaded.buffer);
