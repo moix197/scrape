@@ -220,9 +220,35 @@ function claimHeaderContent($, priorityClaimed, claimedEls) {
   );
 }
 
+// Pre-HTML5 templates have no <nav>: their menu is a <ul> of page links in a container classed "menu"/"nav"
+// (aguapelodge.com: div.menu > ul.nav with a ul.sub per dropdown). With no nav claimed, the first such container
+// outside the footer holding 3+ top-level page links is the nav; a language switcher (one "ESPAÑOL" item over
+// Español/Ingles) has too few.
+const NAV_CLASS_WORDS = new Set(['menu', 'nav', 'navbar', 'navigation', 'mainmenu', 'topmenu']);
+const MIN_CLASS_NAV_LINKS = 3;
+
+const hasNavClass = ($, el) => ($(el).attr('class') || '').toLowerCase().split(/\s+/).some((token) => NAV_CLASS_WORDS.has(token));
+
+function topLevelPageLinks($, el) {
+  const list = /^(ul|ol)$/i.test(el.tagName) ? $(el) : $(el).children('ul, ol').first();
+  return list.children('li').toArray().filter((li) => {
+    const href = $(li).children('a[href]').first().attr('href') || '';
+    return href && !href.startsWith('#') && !/^(mailto|tel|javascript):/i.test(href);
+  }).length;
+}
+
+function claimClassNav($, allEls, claimed) {
+  if (claimed.some(({ type }) => type === 'nav')) return [];
+  const nav = allEls.find((el) => hasNavClass($, el) && !$(el).closest('footer, [id*=footer], [class*=footer]').length && topLevelPageLinks($, el) >= MIN_CLASS_NAV_LINKS);
+  return nav ? [{ el: nav, type: 'nav' }] : [];
+}
+
 function claimLandmarks($) {
   const allEls = $('body *').toArray();
-  const { claimed: priorityClaimed, claimedEls: priorityClaimedEls } = claimPriorityLandmarks($, allEls);
+  const priority = claimPriorityLandmarks($, allEls);
+  const classNav = claimClassNav($, allEls, priority.claimed).filter(({ el }) => !priority.claimedEls.includes(el));
+  const priorityClaimed = [...priority.claimed, ...classNav];
+  const priorityClaimedEls = [...priority.claimedEls, ...classNav.map(({ el }) => el)];
   const headerContent = claimHeaderContent($, priorityClaimed, priorityClaimedEls);
   const genericClaimed = claimGenericLandmarks($, allEls, [...priorityClaimedEls, ...headerContent.map((c) => c.el)]);
   const landmarks = [...priorityClaimed, ...headerContent, ...genericClaimed];

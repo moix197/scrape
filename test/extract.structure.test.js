@@ -485,3 +485,19 @@ test('extractPageStructure takes an image-map <area href="mailto:"> as a section
   const structure = extractPageStructure(page, 'https://example.com/');
   assert.deepEqual(structure.sections.flatMap((s) => s.contacts), [{ type: 'mailto', value: 'info@site.com', label: 'info@site.com' }]);
 });
+
+test('extractPageStructure reads a pre-HTML5 menu (div.menu > ul.nav) as the nav when the page has no <nav>, never the language switcher', () => {
+  const page = `<html><body>
+    <div id="top"><ul class="nav"><li><a href="#">ESPAÑOL</a><ul class="sub"><li><a href="index.html">Español</a></li><li><a href="home.html">Ingles</a></li></ul></li></ul></div>
+    <div id="header"><div class="menu"><ul class="nav">
+      <li><a href="lodge.php">EL LODGE</a></li>
+      <li><a href="esteros.php">ESTEROS</a></li>
+      <li><a href="experiencias.html">EXPERIENCIAS</a><ul class="sub"><li><a href="canotaje.php">Canotaje</a></li><li><a href="cabalgatas.php">Cabalgatas</a></li></ul></li>
+      <li><a href="fotos.php">Fotos</a></li>
+    </ul></div></div>
+    <div id="footer"><ul class="menu"><li><a href="a.php">A</a></li><li><a href="b.php">B</a></li><li><a href="c.php">C</a></li></ul></div>
+  </body></html>`;
+  const structure = extractPageStructure(page, 'http://example.com/');
+  assert.deepEqual(structure.navTree.map((n) => n.text), ['EL LODGE', 'ESTEROS', 'EXPERIENCIAS', 'Fotos']);
+  assert.deepEqual(structure.navTree[2].children.map((n) => n.text), ['Canotaje', 'Cabalgatas']);
+});
